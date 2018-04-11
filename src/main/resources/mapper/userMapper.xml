@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tao.mapper.UserMapper">
+    <insert id="insertUser" parameterType="com.tao.model.User">
+       INSERT INTO t_user_00 (username, password, realname, sex, email, tel, qq, wechat)
+       VALUES (#{username}, #{password}, #{realName}, #{sex}, #{email}, #{tel}, #{qq}, #{wechat});
+    </insert>
+</mapper>

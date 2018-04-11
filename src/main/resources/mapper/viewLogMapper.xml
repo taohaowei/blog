@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tao.mapper.ViewLogMapper">
+    <insert id="insertViewLog" parameterType="com.tao.model.ViewLog">
+        INSERT INTO t_viewlog_00 (id, ipAddress, requestURL, params, sessionId, viewTime, visiter, spendTime)
+        VALUES (#{id}, #{ipAddress}, #{requestURL}, #{params}, #{sessionId}, #{viewTime}, #{visiter}, #{spendTime});
+    </insert>
+
+    <select id="findViewLogByIp" parameterType="java.lang.String" resultType="com.tao.model.ViewLog">
+        SELECT id,visiter FROM t_viewlog_00 WHERE ipAddress=#{ipAddress} ORDER BY viewTime DESC LIMIT 1
+    </select>
+
+    <select id="findAllViewLogByIp"  parameterType="java.lang.String" resultType="com.tao.model.ViewLog">
+        SELECT * FROM t_viewlog_00 WHERE ipAddress=#{ipAddress}  ORDER BY viewTime
+    </select>
+
+    <select id="findAllViewLog"  resultType="com.tao.model.ViewLog">
+        SELECT * FROM t_viewlog_00
+    </select>
+
+    <select id="findNeedBeUpdateIp" resultType="com.tao.model.ViewLog">
+        SELECT id,ipAddress FROM t_viewlog_00 WHERE ipMsg is null;
+    </select>
+
+    <update id="updateIpMsg" parameterType="com.tao.model.ViewLog">
+        UPDATE t_viewlog_00 SET ipMsg='${ipMsg}' WHERE id=#{id}
+    </update>
+</mapper>

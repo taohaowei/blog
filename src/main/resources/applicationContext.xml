@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:mybatis="http://mybatis.org/schema/mybatis-spring"
+       xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+        http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-4.0.xsd
+         http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd">
+
+    <!-- 设置动作启用定时任务 -->
+    <task:annotation-driven/>
+    <!-- 结束 设置动作启用定时任务 -->
+
+    <!-- 自动扫描、并注入对象 -->
+    <context:property-placeholder location="classpath:config/dev.properties" />
+    <context:annotation-config />
+    <context:component-scan base-package="com.tao.controller,com.tao.service,com.tao.interceptor"/>
+    <!-- 结束 自动扫描、并注入对象 -->
+
+    <!-- 引入jdbc配置文件 -->
+    <!--<context:property-placeholder location="classpath:condev.propertiesties"/>-->
+    <!-- 结束 引入jdbc配置文件 -->
+
+    <!-- 分库分表数据源-->
+    <!--<bean id="dataSource" class="com.alipay.zdal.client.jdbc.ZdalDataSource" init-method="init">-->
+        <!--<property name="appName" value="zdal"/>-->
+        <!--<property name="appDsName" value="ShardDataSource"/>-->
+        <!--<property name="dbmode" value="dev"/>-->
+        <!--<property name="configPath" value="./config"/>-->
+        <!--&lt;!&ndash;<property name="configPath" value="classpath*:mapper/*.xml"/>&ndash;&gt;-->
+    <!--</bean>-->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="${url}"/>
+        <property name="password" value="${db.password}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="initialSize" value="${initialSize}"/>
+        <property name="maxActive" value="${maxActive}"/>
+        <property name="maxIdle" value="${maxIdle}"/>
+        <property name="minIdle" value="${minIdle}"/>
+        <property name="maxWait" value="${maxWait}"/>
+    </bean>
+    <!-- 结束 分库分表数据源 -->
+
+    <!-- 配置MyBatis的sqlSession -->
+    <mybatis:scan base-package="com.tao.mapper"/>
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <!--<property name="typeAliasesPackage" value="com.tao.model"/>-->
+        <property name="typeAliasesPackage" value="com.tao.model"/>
+        <property name="configLocation" value="classpath:mybatis.xml"/>
+        <property name="mapperLocations" value="classpath*:mapper/*.xml"/>
+    </bean>
+    <!-- 结束 配置MyBatis的sqlSession -->
+
+    <!-- 映射Mapper目录 -->
+    <!-- Mapper配置文件的所在包名，Spring会自动查找其下的Mapper配置文件 -->
+    <!--<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">-->
+        <!--<property name="basePackage" value="com.tao.mapper"/>-->
+    <!--</bean>-->
+    <!-- 结束 Mapper配置文件的所在包名，Spring会自动查找其下的Mapper配置文件 -->
+    <!-- 结束 映射Mapper目录 -->
+
+
+    <!-- 事务 -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+    <bean id="transactionManager"  class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!-- 结束 事务 -->
+
+    <!-- SpringMVC 完成 -->
+    <!-- SpringMVC 自动添加控制器层返还String类型的前缀和后缀-->
+    <mvc:annotation-driven/>
+    <bean id="internalResourceViewResolver"
+          class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix" value="/"/>
+        <property name="suffix" value=".jsp"/>
+    </bean>
+    <!-- 结束 SpringMVC 自动添加控制器层返还String类型的前缀和后缀-->
+    <mvc:resources location="/" mapping="/**/*.html"/>
+    <!-- 配置拦截器 -->
+    <mvc:interceptors>
+        <mvc:interceptor>
+            <mvc:mapping path="/*.action" />
+            <mvc:mapping path="/*/*.action" />
+            <mvc:mapping path="/*.html" />
+            <mvc:mapping path="/*/*.html" />
+            <!-- 需排除拦截的地址 -->
+            <!--这里的action，和拦截器类都是将要创建的，一开始会报错。创建一个登录拦截器就好。path里面指的映射控制器的地址-->
+            <!--<mvc:exclude-mapping path="/login.action"/>-->
+            <bean id="loadInterceptor" class="com.tao.interceptor.LoadInterceptor" />
+        </mvc:interceptor>
+    </mvc:interceptors>
+    <!-- 结束 配置拦截器 -->
+    <!-- 结束 SpringMVC -->
+
+    <!-- 多部分文件上传 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="maxUploadSize" value="104857600" />
+        <property name="maxInMemorySize" value="4096" />
+        <property name="defaultEncoding" value="UTF-8"/>
+    </bean>
+    <!-- 结束 多部分文件上传 -->
+
+    <!-- 配置json数据 -->
+    <bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">
+        <property name="messageConverters">
+            <list>
+                <ref bean="mappingJackson2HttpMessageConverter"/>
+            </list>
+        </property>
+    </bean>
+    <bean id="mappingJackson2HttpMessageConverter"
+          class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+        <property name="supportedMediaTypes">
+            <list>
+                <value>text/html;charset=UTF-8</value>
+                <value>text/json;charset=UTF-8</value>
+                <value>application/json;charset=UTF-8</value>
+            </list>
+        </property>
+    </bean>
+    <!-- 结束 配置json数据 -->
+
+</beans>

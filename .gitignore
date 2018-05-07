@@ -2,6 +2,7 @@
 /target/ 
 /.idea/
 /src/main/resources/config/dev.properties
+/src/main/resources/config/zdal-dev-ds.xml
 .classpath
 .project
 .settings      

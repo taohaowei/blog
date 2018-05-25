@@ -1,0 +1,239 @@
+<div class="container"><h1 id="利用反射实现sql查询得到持久化对象">利用反射实现sql查询，得到持久化对象</h1>
+
+<pre><code>标题想不出言简意赅的词汇，想找相关信息的朋友们，先来看看方法结构是否符合你的胃口。
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">public static &lt;E&gt; List&lt;E&gt; getObjectBySql(String sql,E e)
+{   
+    List&lt;E&gt; list = new ArrayList&lt;E&gt;();
+    //<span class="hljs-keyword">...</span>
+    //.方法区域
+    //<span class="hljs-keyword">...</span>
+    <span class="hljs-keyword">return</span> list; 
+}</code></pre>
+
+<p>正题</p>
+
+<hr>
+
+<p>重温了一下hibernate中的hql，发现其中得到持久化对象很新奇，自己研究了会儿。 <br>
+实现原理是利用 <strong>反射机制</strong> 通过 <strong>传入的Class对象（类似String.Class）</strong> 得到该对象的所有方法、变量名。 <br>
+实现步骤如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs actionscript"><span class="hljs-preprocessor"><span class="hljs-keyword">import</span> org.apache.commons.dbcp.BasicDataSourceFactory;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> javax.sql.DataSource;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.io.FileInputStream;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.io.IOException;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.lang.reflect.Field;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.lang.reflect.InvocationTargetException;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.lang.reflect.Method;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.sql.*;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.util.ArrayList;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.util.List;</span>
+<span class="hljs-preprocessor"><span class="hljs-keyword">import</span> java.util.Properties;</span>
+
+<span class="hljs-comment">/**
+ * Created by HaoWeiTao on 2017/5/15.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Eazy01</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> DataSource ds ;<span class="hljs-comment">//连接池</span>
+
+    <span class="hljs-keyword">static</span> {
+        Properties properties = <span class="hljs-keyword">new</span> Properties();<span class="hljs-comment">//得到一个properties对象</span>
+        <span class="hljs-keyword">try</span> {
+            properties.load(<span class="hljs-keyword">new</span> FileInputStream(<span class="hljs-string">"src\\main\\dbcp.properties"</span>));<span class="hljs-comment">//加载properties文件</span>
+            ds = BasicDataSourceFactory.createDataSource(properties);<span class="hljs-comment">//通过连接池工厂加载数据</span>
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> &lt;E&gt; List&lt;E&gt; getObjectBySql(String sql,E e)
+    {
+        Connection conn = <span class="hljs-literal">null</span>;     <span class="hljs-comment">//连接</span>
+        Statement st = <span class="hljs-literal">null</span>;
+        ResultSet rs = <span class="hljs-literal">null</span>;
+        List&lt;E&gt; list = <span class="hljs-keyword">new</span> ArrayList&lt;E&gt;();
+        <span class="hljs-keyword">try</span> {
+            conn = ds.getConnection();  <span class="hljs-comment">//得到一个连接</span>
+            st = conn.createStatement();
+            rs = st.executeQuery(sql);
+            ResultSetMetaData rsmd = rs.getMetaData();<span class="hljs-comment">//得到结果集元数据对象，可以通过该对象得到列数，列名等信息</span>
+            int count = <span class="hljs-number">0</span>;
+            <span class="hljs-keyword">while</span> (rs.next())
+            {
+                Class&lt;?&gt; eClas = e.getClass();
+                E eObj = (E) eClas.newInstance();
+                int len = rsmd.getColumnCount();
+                count++;
+                <span class="hljs-keyword">for</span> (int i=<span class="hljs-number">1</span>;i&lt;=len;i++)
+                {
+                    <span class="hljs-comment">//得到列名</span>
+                    String columnName = rsmd.getColumnName(i);
+                    <span class="hljs-comment">//将列名首字母转大写</span>
+                    String columnNameUpCase = columnName.substring(<span class="hljs-number">0</span>,<span class="hljs-number">1</span>).toUpperCase()+columnName.substring(<span class="hljs-number">1</span>);
+                    <span class="hljs-comment">//得到每一列在泛型对象中对应的set方法名</span>
+                    String columnSetMethod = <span class="hljs-string">"set"</span>+columnNameUpCase;
+                    Field filed = eClas.getDeclaredField(columnName);
+                    Class&lt;?&gt; clazz = filed.getType();   <span class="hljs-comment">//得到字段名对应的类型</span>
+                    <span class="hljs-comment">//字段为int类型</span>
+                    <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(int.<span class="hljs-keyword">class</span>)) {
+                        <span class="hljs-comment">//getMethod(),第一个参数为方法名，后边参数是方法中参数的类型，方法中有几个参数就写几个类型</span>
+                        Method method = eClas.getMethod(columnSetMethod, int.<span class="hljs-keyword">class</span>);
+                        <span class="hljs-comment">//invoke()方法第一个参数是执行方法的对象，第二个是执行方法时的实参</span>
+                        method.invoke(eObj,rs.getInt(i));
+                    }
+                    <span class="hljs-comment">//字段为字符串类型的</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(String.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,String.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getString(i));
+                    }
+                    <span class="hljs-comment">//字段为double类型</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(double.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,double.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getDouble(i));
+                    } <span class="hljs-comment">//字段为float类型</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(float.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,float.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getFloat(i));
+                    }<span class="hljs-comment">//字段为Integer类型</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(Integer.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,Integer.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getInt(i));
+                    }<span class="hljs-comment">//字段为Float类型</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(Float.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,Float.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getFloat(i));
+                    }<span class="hljs-comment">//字段为double类型</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(Double.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,Double.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getDouble(i));
+                    }<span class="hljs-comment">//字段为Date类型</span>
+                    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clazz.isAssignableFrom(Date.<span class="hljs-keyword">class</span>)) {
+                        Method method = eClas.getMethod(columnSetMethod,Date.<span class="hljs-keyword">class</span>);
+                        method.invoke(eObj,rs.getDate(i));
+                    }
+                }
+                list.add(eObj);
+            }
+        } <span class="hljs-keyword">catch</span> (SQLException e0) {
+            e0.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IllegalAccessException e1) {
+            e1.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (InstantiationException e1) {
+            e1.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (NoSuchFieldException e1) {
+            e1.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (NoSuchMethodException e1) {
+            e1.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (InvocationTargetException e1) {
+            e1.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> list;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> main(String[] args) {
+        String sql = <span class="hljs-string">"select * from title"</span>; <span class="hljs-comment">//查询sql</span>
+        List&lt;Title&gt; list = getObjectBySql(sql,<span class="hljs-keyword">new</span> Title());
+        <span class="hljs-keyword">for</span> (Title title:list) {
+            System.out.println(title);
+        }
+    }
+}
+}
+</code></pre>
+
+<p>Title实体类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by HaoWeiTao on 2017/5/15.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Title</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> titleId;
+    <span class="hljs-keyword">private</span> String titleName;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> beilv;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> isEffective;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Title</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Title</span>(<span class="hljs-keyword">int</span> id, <span class="hljs-keyword">int</span> titleId, String titleName, <span class="hljs-keyword">double</span> beilv, <span class="hljs-keyword">int</span> isEffective) {
+        <span class="hljs-keyword">this</span>.id = id;
+        <span class="hljs-keyword">this</span>.titleId = titleId;
+        <span class="hljs-keyword">this</span>.titleName = titleName;
+        <span class="hljs-keyword">this</span>.beilv = beilv;
+        <span class="hljs-keyword">this</span>.isEffective = isEffective;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getTitleId</span>() {
+        <span class="hljs-keyword">return</span> titleId;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTitleId</span>(<span class="hljs-keyword">int</span> titleId) {
+        <span class="hljs-keyword">this</span>.titleId = titleId;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTitleName</span>() {
+        <span class="hljs-keyword">return</span> titleName;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTitleName</span>(String titleName) {
+        <span class="hljs-keyword">this</span>.titleName = titleName;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getBeilv</span>() {
+        <span class="hljs-keyword">return</span> beilv;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBeilv</span>(<span class="hljs-keyword">double</span> beilv) {
+        <span class="hljs-keyword">this</span>.beilv = beilv;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getIsEffective</span>() {
+        <span class="hljs-keyword">return</span> isEffective;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setIsEffective</span>(<span class="hljs-keyword">int</span> isEffective) {
+        <span class="hljs-keyword">this</span>.isEffective = isEffective;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Title{"</span> +
+                <span class="hljs-string">"id="</span> + id +
+                <span class="hljs-string">", titleId="</span> + titleId +
+                <span class="hljs-string">", titleName="</span> + titleName +
+                <span class="hljs-string">", beilv="</span> + beilv +
+                <span class="hljs-string">", isEffective="</span> + isEffective +
+                <span class="hljs-string">'}'</span>;
+    }
+}</code></pre>
+
+
+
+<h3 id="下面是数据库源数据">下面是数据库源数据</h3>
+
+<p><img src="http://img.blog.csdn.net/20170515165923941?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="数据库字段" title="">`</p>
+
+
+
+<h3 id="下面是运行结果">下面是运行结果</h3>
+
+<p><img src="http://img.blog.csdn.net/20170515165909300?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="">`</p>
+
+<p>《对应jar包有mysql-connect和dbcp》</p></div>

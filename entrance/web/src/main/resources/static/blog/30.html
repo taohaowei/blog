@@ -1,0 +1,465 @@
+<p><span id="10"></span></p>
+
+
+
+<h1 id="使用jrebel实现完全热部署">使用Jrebel，实现”完全”热部署</h1>
+
+<p><span> <br>
+目录</span></p>
+
+<ul>
+<li><p><a href="#1">1、什么是热部署</a></p></li>
+<li><p><a href="#2">2、为什么要用jrebel?</a></p></li>
+<li><p><a href="#3">3、jrebel配置安装及激活</a></p></li>
+<li><p><a href="#4">4、使用过程</a></p>
+
+<ul><li><a href="#4.1">4.1 以tomcat为容器，启动项目的使用过程</a></li>
+<li><a href="#4.2">4.2 以Spring Boot，启动项目的使用过程</a></li></ul></li>
+<li><p><a href="#5">5、Jrebel适用范围以及注意事项</a></p>
+
+<ul><li><a href="#5.1">5.1 Jrebel适用范围.</a></li>
+<li><a href="#5.2">5.2 Jrebel 注意事项</a></li></ul></li>
+<li><p><a href="#6">6、热部署的拓展知识</a>   </p></li>
+</ul>
+
+<p><span id="1"> <br>
+正文</span></p>
+
+
+
+<h2 id="1什么是热部署"><a href="#10">1、什么是热部署？</a></h2>
+
+<p>所谓热部署，就是在应用正在运行的时候升级软件，却不需要重新启动应用。对于Java应用程序来说，热部署就是在运行时更新Java类文件。在基于Java的应用服务器实现热部署的过程中，类装入器扮演着重要的角色。大多数基于Java的应用服务器，包括EJB服务器和Servlet容器，都支持热部署。类装入器不能重新装入一个已经装入的类，但只要使用一个新的类装入器实例，就可以将类再次装入一个正在运行的应用程序。</p>
+
+<p><span id="2"></span></p>
+
+
+
+<h2 id="2为什么选择-jrebel"><a href="#10">2、为什么选择 jrebel? </a></h2>
+
+<p>2007年，ZeroTurnaround宣布提供一种被称作JRebel（当时是JavaRebel）的工具，该工具可以在无需动态类加载器的情况下更新类，且只做极少的限制。不像HotSwap只能在方法体内热部署以及依赖于IDE的集成，这一工具的工作方式是，监控磁盘上实际已编译的.class文件，无论何时只要有文件被更新就更新类。这意味着如果愿意的话，你可以把JRebel和文本编辑器、命令行的编译器放在一起使用。当然，它也被巧妙地整合到了Eclipse、InteliJ和NetBeans中。与动态的类加载器不一样，JRebel保留了所有现有的对象和类的标识和状态，允许开发者继续使用他们的应用而不会产生延迟。</p>
+
+<p><strong>jrebel可以实现基于类、XML文件的增删查改，也能够实现方法体的增删查改的热部署</strong></p>
+
+<pre><code>经对 Jrebel 和 Spring-boot-devtools 两款热部署的测试比较：（针对云音乐Musician项目）</br></br>
+
+不用热部署插件:            每次修改源代码，需要重新启动musician项目。</br></br>
+
+spring-boot-devtools:    修改源代码后，仍会对大部分的class类进行加载，大约能减少一半重重启时间。且支持范围不如Jrebel</br></br>
+
+Jrebel:                  可自由修改源码，无需修改源码，只会重新加载修改的类</br>
+</code></pre>
+
+<p>下面是我对<strong>jrebel适用范围做的测评</strong>，大家可以参考（ 更详细的请跳转 <a href="#5.2">5.2 Jrebel 注意事项</a>）</p>
+
+<table>
+<thead>
+<tr>
+  <th>支持类别</th>
+  <th>Jrebel</th>
+  <th>JVM Hot Swap</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>方法体内代码的修改</td>
+  <td>支持</td>
+  <td>支持</td>
+</tr>
+<tr>
+  <td>方法参数、名称、返回值的变动</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>方法体注解的变动</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>新增、删除N(N&gt;0)个方法</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>类的增删查改，其他类对此新增类的引用</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>新增接口，以及它的实现类</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>改变静态字段值（仅static）</td>
+  <td>不支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>改变常量字段值（final static or final）</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>枚举类/值（增删查改），并对它调用</td>
+  <td>支持</td>
+  <td>不支持</td>
+</tr>
+<tr>
+  <td>。。。</td>
+  <td></td>
+  <td></td>
+</tr>
+</tbody></table>
+
+
+<p>Jrebel的实力是这样的强大，使用它。能够在编程时避免中断思路，而且能大幅度节省重启项目的时间。将更多的时间用于Coding，</p>
+
+<p>下面是jrebel的<strong>安装、破解、以及使用</strong>的过程</p>
+
+<p><span id="3"></span></p>
+
+
+
+<h2 id="3jrebel配置安装及激活"><a href="#10">3、jrebel配置安装及激活</a></h2>
+
+<p>原先的Jrebel账号免费激活通道已经关闭，大家可以通过 <br>
+window:  <a href="https://blog.csdn.net/qq_27093465/article/details/79148498"> JRebel 7.1.5 插件下载 安装 激活 结合 IntelliJ IDEA</a>进行破解。 <br>
+Mac&amp;&amp;Linux : <a href="https://www.cnblogs.com/wang1024/p/7211194.html">IDEA插件JRebel安装配置与破解激活详细教程</a> 进行破解。 <br>
+（安装、使用过程有问题可以POPO我：taohaowei@corp.netease.com）</p>
+<p><span id="4"></span></p>
+
+
+
+<h2 id="4使用过程"><a href="#10">4、使用过程</a></h2>
+
+<p><span id="4.1"></span></p>
+
+
+
+<h3 id="41-以tomcat为容器启动项目的使用过程"><a href="#10">4.1 以tomcat为容器，启动项目的使用过程</a></h3>
+
+<p>使用tomcat为容器启动项目的时候，需要进行如下的配置：</p>
+
+<p><img src="https://taohaowei.github.io/savePicture/jrebel/tomcat_jrebel_1.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/tomcat_jrebel_2.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/tomcat_jrebel_3.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/tomcat_jrebel_4.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/tomcat_jrebel_5.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/tomcat_jrebel_6.png" alt="image" title=""> <br>
+配置完成以后，在容器启动的时候更新代码，只需切出idea软件，jrebel的热部署会随着idea自动保存代码的同时更新classes文件。</p>
+
+<p><span id="4.2"></span></p>
+
+
+
+<h3 id="42-以spring-boot启动项目的使用过程"><a href="#10">4.2 以Spring Boot，启动项目的使用过程</a></h3>
+
+<p>安装完成后，重启idea，上部启动栏会多两个绿色的按钮。 <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/jrebel1.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/jrebel2.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/jrebel3.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/jrebel4.png" alt="image" title=""> <br>
+<img src="https://taohaowei.github.io/savePicture/jrebel/jrebel5.png" alt="image" title=""></p>
+
+<p><span id="5"></span></p>
+
+
+
+<h2 id="5jrebel适用范围以及注意事项"><a href="#10">5、Jrebel适用范围以及注意事项</a></h2>
+
+<p><span id="5.1"></span></p>
+
+
+
+<h3 id="51-jrebel适用范围"><a href="#10">5.1 Jrebel适用范围.</a></h3>
+
+<table>
+<thead>
+<tr>
+  <th>Java EE Support</th>
+  <th>Jrebel</th>
+  <th>JVM Hot Swap</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>Time to reload</td>
+  <td>&lt; 1s</td>
+  <td>&lt; 1s</td>
+</tr>
+<tr>
+  <td>No memory leak</td>
+  <td>YES</td>
+  <td>YES</td>
+</tr>
+<tr>
+  <td>Changes to method bodies</td>
+  <td>YES</td>
+  <td>YES</td>
+</tr>
+<tr>
+  <td>Adding/removing Methods</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Adding/removing constructors</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Adding/removing fields</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Adding/removing classes</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Adding/removing annotations</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Changing static field value</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Adding/removing enum values</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Changing interfaces</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Replacing superclass</td>
+  <td>NO</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Adding/removing implemented interfaces</td>
+  <td>NO</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Skip builds for WAR directories</td>
+  <td>YES</td>
+  <td>YES</td>
+</tr>
+<tr>
+  <td>Skip builds for .WAR/.EAR class updates</td>
+  <td>YES</td>
+  <td>YES</td>
+</tr>
+<tr>
+  <td>Skip builds for .WAR/.EAR resource updates</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Map multiple source dirs to one .WAR/.EAR target dir</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Map classes and resources with include/exclude patterns</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Map multiple source dirs with Ant-style patterns</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Use system properties to make mapping machine-independent</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Maven plugin</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>JSP EL changes</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>JSP Scriptlet changes</td>
+  <td>YES Enterprise Add-on</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>EJB 1.x session bean interface changes</td>
+  <td>YES Enterprise Add-on</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>EJB 2.x session bean interface changes</td>
+  <td>YES Enterprise Add-on</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>EJB 3.x session bean interface changes</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>JSF changes (Mojarra)</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>JPA changes (Hibernate, EclipseLink, TopLink, OpenJPA)</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>CDI changes (Weld)</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>ResourceBundle</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Spring Framework 2.x or later</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Hibernate</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>JBoss Seam 2.x or later</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Google Guice</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Stripes 1.x or later</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache log4j 1.2.x or later</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache Struts 1.x</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache Struts 2.x or later</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache Tapestry4</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache Velocity</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache Wicket</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>CgLib</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Javassist</td>
+  <td>YES JRebel 3.0+</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Atlassian Confluence plugins</td>
+  <td>YES</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>ClassWorlds</td>
+  <td>YES Beta</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Apache Felix</td>
+  <td>YES Beta</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>Eclipse Equinox</td>
+  <td>YES Beta</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>IntelliJ IDEA 7.x, 8.x plugins</td>
+  <td>YES Beta</td>
+  <td>NO</td>
+</tr>
+<tr>
+  <td>NetBeans plugins</td>
+  <td>YES Beta</td>
+  <td>NO</td>
+</tr>
+</tbody></table>
+
+
+<p><span id="5.2"></span></p>
+
+
+
+<h3 id="52-jrebel-注意事项"><a href="#10">5.2 Jrebel 注意事项</a></h3>
+
+<pre><code>1、 每次重新编译加载classes文件的时候，控制台console都会输出一段文字
+
+（2018-03-30 10:49:53 JRebel: Reloading class “包名.类名.class”.）
+
+这段文字代表该类已经重加载完毕，请确保这段文字输出以后，再调试。
+
+
+2、 以Spring boot，启动的项目需要注意：
+执行重新编译（recompile）类的时候，需要注意 被编译类 的依赖顺序。
+
+例如：A类实现了B接口（类A和接口B都被修改的前提下），那么需要先重新编译（recompile）B接口
+再重新编译（recompile）A类。
+
+当然，如果只修改了类A的内容，接口B未做修改，则只需要重新编译（recompile）类A
+</code></pre>
+
+<p><span id="6"></span></p>
+
+
+
+<h2 id="6热部署的拓展知识"><a href="#10">6、热部署的拓展知识</a></h2>
+
+<p>1、<a href="http://www.hollischuang.com/archives/598">HotSwap和JRebel原理</a></p>
+
+<p>2、<a href="http://blog.csdn.net/chenjie19891104/article/details/42807959">服务器热部署的实现原理</a></p>
+
+<p>（完）</p>

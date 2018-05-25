@@ -1,0 +1,80 @@
+<div class="container"><h2 id="unsigned与signed的区别">unsigned与signed的区别 ##</h2>
+
+<pre><code>signed  为默认编译携带。
+`int i ;`
+等同于`signed int i;`
+signed为有符号型。unsigned为无符号型。
+</code></pre>
+
+<ol>
+<li><p>那么问题来了，什么是符号？</p>
+
+<p>举例说 正10（10）和负10（-10）前面的正负号就是符号。 <br>
+ unsigned是缺少一个符号位，等于多获得一位表示值的位置，其在正数所能表示的最大值为signed的两倍（int默认4字节得到unsigned：4294967295，signed：2147483648） <br>
+ 由于unsigned缺少了符号位，其不能够表示负数，如果表示负数，会有如下的效果，下面是一段很简单的代码。</p></li>
+</ol>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-comment">#include&lt;stdio.h&gt;</span>
+
+<span class="hljs-keyword">int</span> main(){
+    unsigned <span class="hljs-keyword">int</span> i = -<span class="hljs-number">1</span>;
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"<span class="hljs-variable">%d</span> <span class="hljs-variable">%u</span>"</span>,i,i);<span class="hljs-regexp">//</span><span class="hljs-variable">%d</span>输出时unsigned会自动强转为signed输出，<span class="hljs-variable">%u</span>是unsigned的输出形式
+    //结果是：-<span class="hljs-number">1</span>，<span class="hljs-number">4294967295</span>;
+    i = <span class="hljs-number">10</span>;
+    <span class="hljs-keyword">int</span> j = -<span class="hljs-number">1</span>;
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"\n<span class="hljs-variable">%d</span>"</span>,i&gt;j);
+    <span class="hljs-regexp">//</span>结果是<span class="hljs-number">0</span>，证明i&lt;=j
+    <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+}</code></pre>
+
+<ol>
+<li><p>无符号整形与有符号整形（unsigned int i 与 signed int j ）比较的过程中发生了什么？</p>
+
+<p>ANSI C 标准采用值保留(value preserving)原则，当把几个整形操作数混合使用时（既包含有符号数signed和无符号数unsigned），值保留原则会自动将低精度的值转换为高精度值。（这里unsigned是signed值得两倍，所以按照unsigned储存）通俗点说，就是两个整型数，如果都转换为signed不会丢失信息，就转换为signed；否则就转换为unsigned。</p></li>
+<li><p>为什么转换成无符号整形时-1值是4294967295？？？</p>
+
+<p>由于计算机用补码形式保存数据，所以-1源码为1000 0000 0000 0001 其补码为1111 1111 1111 1111，然而unsigned是不认符号位的，所以此时的-1 = 4294967295;(依次顺推-2 源码 1000 0000 0000 0010 补码 1111 1111 1111 1110，转换成10进制为4294967294)，导致上述的10竟然比-1小</p></li>
+</ol>
+
+
+
+<h2 id="const和define的区别">const和define的区别</h2>
+
+<p>(1) 编译器处理方式不同</p>
+
+<p>　　define宏是在预处理阶段展开。</p>
+
+<p>　　const常量是编译运行阶段使用。</p>
+
+<p>(2) 类型和安全检查不同</p>
+
+<p>　　define宏没有类型，不做任何类型检查，仅仅是展开。</p>
+
+<p>　　const常量有具体的类型，在编译阶段会执行类型检查。</p>
+
+<p>(3) 存储方式不同</p>
+
+<p>　　define宏仅仅是展开，有多少地方使用，就展开多少次，不会分配内存。</p>
+
+<p>　　const常量会在内存中分配(可以是堆中也可以是栈中)。</p>
+
+<p>(4)const  可以节省空间，避免不必要的内存分配。 例如： <br>
+        #define PI 3.14159 //常量宏 <br>
+        const doulbe Pi=3.14159; //此时并未将Pi放入ROM中 …… <br>
+        double i=Pi; //此时为Pi分配内存，以后不再分配！ <br>
+        double I=PI; //编译期间进行宏替换，分配内存 <br>
+        double j=Pi; //没有内存分配 <br>
+        double J=PI; //再进行宏替换，又一次分配内存！ <br>
+        const定义常量从汇编的角度来看，只是给出了对应的内存地址，而不是象#define一样给出的是立即数，所以，const定义的常量在程序运行过程中只有一份拷贝，而 #define定义的常量在内存中有若干个拷贝。  <br>
+(5) 提高了效率。 编译器通常不为普通const常量分配存储空间，而是将它们保存在符号表中，这使得它成为一个编译期间的常量，没有了存储与读内存的操作，使得它的效率也很高。</p>
+
+<p>const 与 #define的比较</p>
+
+<pre><code>C++ 语言可以用const来定义常量，也可以用 #define来定义常量。但是前者比后者有更多的优点：
+</code></pre>
+
+<p>（1）   const常量有数据类型，而宏常量没有数据类型。编译器可以对前者进行类型安全检查。而对后者只进行字符替换，没有类型安全检查，并且在字符替换可能会产生意料不到的错误（边际效应）。</p>
+
+<p>（2）   有些集成化的调试工具可以对const常量进行调试，但是不能对宏常量进行调试。</p></div>

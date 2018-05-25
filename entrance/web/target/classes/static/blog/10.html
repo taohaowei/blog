@@ -1,0 +1,38 @@
+<div class="container"><h1 id="一只-选择排序-的心路历程">一只 “ 选择排序 ” 的心路历程</h1>
+
+<p>《转载》请注明出处—-<a href="http://blog.csdn.net/q6834850/article/details/72180131#">http://blog.csdn.net/q6834850/article/details/72180131#</a>  –By q6834850 <br>
+    作为一只在算法界成熟、稳重的算法，我对自己形象的定义是中年大叔型。</p>
+
+<ul>
+<li>为什么这么说呢？</li>
+</ul>
+
+<p>因为我是如此的稳定，我的交换操作介于 0 和 (n - 1） 次之间。我的比较操作为 n (n - 1） / 2 次之间。我的赋值操作一定介于 0 和 3 (n - 1） 次之间。</p>
+
+<ul>
+<li>为什么会这样呢？ <br>
+因为我的实现方式是 循环n次数组，每次比较(n-i)次，找到最小的那个索引min，然后交换一次change(i,min).</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs glsl"><span class="hljs-keyword">void</span> Selection(<span class="hljs-keyword">int</span> a[],<span class="hljs-keyword">int</span> lo,<span class="hljs-keyword">int</span> hi)
+{
+    <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i=lo;i&lt;=hi;i++)
+    {
+        <span class="hljs-keyword">int</span> <span class="hljs-built_in">min</span>=i;
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> j=i+<span class="hljs-number">1</span>;j&lt;=hi;j++)
+        {
+            <span class="hljs-keyword">if</span>(a[<span class="hljs-built_in">min</span>]&gt;a[j]) <span class="hljs-comment">//比较a[min]和a[j]，将更小的那个的索引赋值给min</span>
+                <span class="hljs-built_in">min</span> = j;
+        }
+        change(<span class="hljs-built_in">min</span>,i);<span class="hljs-comment">//交换a[min]和a[i]</span>
+    }
+}</code></pre>
+
+
+
+<h3 id="来看看实现过程的动态图吧">来看看实现过程的动态图吧</h3>
+
+<p>左边红色代表此时i的位置，右边红色代表在剩余未排序数组中找到的最小值 <br>
+<img src="http://img.blog.csdn.net/20170515174418386?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="选择排序动态图]![这里写图片描述" title=""></p></div>

@@ -1,0 +1,254 @@
+<p></p><article> <br>
+            <h1 class="csdn_top" id="从-mongodb-及-mysql-谈bb树">从 MongoDB 及 Mysql 谈B/B+树</h1> <br>
+            <div class="article_bar clearfix"> <br>
+                <div class="artical_tag"> <br>
+                    <span class="original">看到一篇很好的文章，描述了B、B+树之间的区别，让我学习到了很多。转载来自:</span> <br>
+                    <span class="time"><a href="http://blog.csdn.net/wwh578867817/article/details/50493940">http://blog.csdn.net/wwh578867817/article/details/50493940</a></span> <br>
+                </div></div></article><p></p>
+
+<div class="markdown_views">
+<p>前两天有位朋友邀请我回答个问题，<strong>为什么 MongoDB （索引）使用B-树而 Mysql 使用 B+树？</strong>我觉得这个问题非常好，从实际应用的角度来学习数据结构，没有比这更好的方法了。因为像 Mysql 和 MongoDB 这种经久考验的大型软件在设计上都是精益求精的，它们为什么选择这些数据结构？:)</p>
+
+<p><strong>本文从实际应用的角度来介绍以及分析B-树和B+树。</strong></p>
+
+<hr>
+
+
+
+<h2 id="b-树由来">B-树由来</h2>
+
+<blockquote>
+<p>定义：B-树是一类树，包括B-树、B+树、B*树等，是一棵自平衡的搜索树，它类似普通的平衡二叉树，不同的一点是B-树允许每个节点有<strong>更多的子节点</strong>。B-树是专门为外部存储器设计的，如磁盘，它对于读取和写入大块数据有良好的性能，所以一般被用在文件系统及数据库中。</p>
+</blockquote>
+
+<p>定义只需要知道B-树允许每个节点有更多的子节点即可。子节点数量一般在上千，具体数量依赖外部存储器的特性。</p>
+
+<p>先来看看为什么会出现B-树这类数据结构。</p>
+
+<p>传统用来搜索的平衡二叉树有很多，如 AVL 树，红黑树等。这些树在一般情况下查询性能非常好，但当数据非常大的时候它们就无能为力了。原因当数据量非常大时，内存不够用，大部分数据只能存放在磁盘上，只有需要的数据才加载到内存中。一般而言内存访问的时间约为 50 ns，而磁盘在 10 ms 左右。速度相差了近 5 个数量级，磁盘读取时间远远超过了数据在内存中比较的时间。这说明程序大部分时间会阻塞在磁盘 IO 上。那么我们如何提高程序性能？<strong>减少磁盘 IO 次数</strong>，像 AVL 树，红黑树这类平衡二叉树从设计上无法“迎合”磁盘。 <br>
+关于磁盘可参考 <a href="http://blog.csdn.net/wwh578867817/article/details/49005675">浅谈计算机中的存储模型（四）磁盘</a></p>
+
+<p><img src="https://img-blog.csdn.net/20160113131019547" alt="平衡二叉树" title=""></p>
+
+<p>上图是一颗简单的平衡二叉树，平衡二叉树是通过<strong>旋转</strong>来保持平衡的，<strong>而旋转是对整棵树的操作</strong>，若部分加载到内存中则无法完成旋转操作。其次平衡二叉树的高度相对较大为 log n（底数为2），这样逻辑上很近的节点实际可能非常远，无法很好的利用磁盘预读（局部性原理），所以这类平衡二叉树在数据库和文件系统上的选择就被 pass 了。</p>
+
+<blockquote>
+<p>空间局部性原理：如果一个存储器的某个位置被访问，那么将它附近的位置也会被访问。</p>
+</blockquote>
+
+<p>我们从“迎合”磁盘的角度来看看B-树的设计。</p>
+
+<p>索引的效率依赖与磁盘 IO 的次数，快速索引需要有效的减少磁盘 IO 次数，如何快速索引呢？索引的原理其实是<strong>不断的缩小查找范围</strong>，就如我们平时用字典查单词一样，先找首字母缩小范围，再第二个字母等等。平衡二叉树是每次将范围分割为两个区间。为了更快，<strong>B-树每次将范围分割为多个区间，区间越多，定位数据越快越精确</strong>。那么如果节点为区间范围，每个节点就较大了。所以新建节点时，直接申请页大小的空间（磁盘是按 block 分的，一般为 512 Byte。磁盘 IO 一次读取若干个 block，我们称为一页，具体大小和操作系统有关，一般为 4 k，8 k或 16 k），计算机内存分配是按页对齐的，这样就实现了一个节点只需要一次 IO。</p>
+
+<p><img src="https://img-blog.csdn.net/20160113133100893" alt="B-树" title=""></p>
+
+<p>上图是一棵简化的B-树，多叉的好处非常明显，有效的降低了B-树的高度，为底数很大的 log n，底数大小与节点的子节点数目有关，一般一棵B-树的高度在 3 层左右。层数低，每个节点区确定的范围更精确，范围缩小的速度越快。上面说了一个节点需要进行一次 IO，那么总 IO 的次数就缩减为了 log n 次。B-树的每个节点是 n 个有序的序列(a1,a2,a3…an)，并将该节点的子节点分割成 n+1 个区间来进行索引(X1&lt; a1, a2 &lt; X2 &lt; a3, … , an+1 &lt; Xn &lt; anXn+1 &gt; an)。</p>
+
+<hr>
+
+<h2 id="b-树">B-树</h2>
+
+<p><img src="https://img-blog.csdn.net/20160113135955872" alt="B-树" title=""></p>
+
+<p>上图是一颗B-树，<strong>B-树的每个节点有 d~2d 个 key</strong>，<strong>2</strong> 这个因子指明了树的分裂及合并的规则，这个规则维持了B-树的平衡。</p>
+
+<p>B-树的插入和删除就不具体介绍了，很多资料都描述了这一过程。在普通平衡二叉树中，插入删除后若不满足平衡条件则进行 <strong>旋转</strong> 操作，而在B-树中，插入删除后不满足条件则进行分裂及合并操作。</p>
+
+<p>简单叙述下分裂及合并操作。</p>
+
+<blockquote>
+<p>分裂：如果有一个节点有 2d 个 key，增加一个后为 2d+1 个 key，不符合上述规则 <strong>B-树的每个节点有 d~2d 个 key，大于 2d</strong>，则将该节点进行分裂，分裂为两个 d 个 key 的节点并将中值 key 归还给父节点。 <br>
+合并：如果有一个节点有 d 个 key，删除一个后为 d-1 个 key，不符合上述规则 <strong>B-树的每个节点有 d~2d 个 key，小于 d</strong>，则将该节点进行合并，合并后若满足条件则合并完成，不满足则均分为两个节点。</p>
+</blockquote>
+
+<p><strong>B-树的查找</strong></p>
+
+<p>我们来看看B-树的<strong>查找</strong>，假设每个节点有 n 个 key值，被分割为 n+1 个区间，注意，<strong>每个 key 值紧跟着 data 域，这说明B-树的 key 和 data 是聚合在一起的</strong>。一般而言，根节点都在内存中，B-树以每个节点为一次磁盘 IO，比如上图中，若搜索 key 为 25 节点的 data，首先在根节点进行二分查找（因为 keys 有序，二分最快），判断 key 25 小于 key 50，所以定位到最左侧的节点，<strong>此时进行一次磁盘 IO</strong>，将该节点从磁盘读入内存，接着继续进行上述过程，直到找到该 key 为止。</p>
+
+<p>查找伪代码</p>
+
+<pre class="prettyprint"><code class="language-c++ hljs lasso"><span class="hljs-built_in">Data</span><span class="hljs-subst">*</span> BTreeSearch(Root <span class="hljs-subst">*</span>node, Key key)
+{
+<span class="hljs-built_in">Data</span><span class="hljs-subst">*</span> <span class="hljs-built_in">data</span>;
+
+<span class="hljs-keyword">if</span>(root <span class="hljs-subst">==</span> <span class="hljs-built_in">NULL</span>)
+<span class="hljs-keyword">return</span> <span class="hljs-built_in">NULL</span>;
+<span class="hljs-built_in">data</span> <span class="hljs-subst">=</span> BinarySearch(node);
+<span class="hljs-keyword">if</span>(<span class="hljs-built_in">data</span><span class="hljs-subst">-&gt;</span>key <span class="hljs-subst">==</span> key)
+{
+<span class="hljs-keyword">return</span> <span class="hljs-built_in">data</span>;
+}<span class="hljs-keyword">else</span>{
+node <span class="hljs-subst">=</span> ReadDisk(<span class="hljs-built_in">data</span><span class="hljs-subst">-&gt;</span>next);
+BTreeSearch(node, key);
+}
+}</code></pre>
+
+<hr>
+
+
+
+<h2 id="b树">B+树</h2>
+
+<p>B+树是B-树的变种，它与B-树的不同之处在于：</p>
+
+<ul>
+<li><strong>在B+树中，key 的副本存储在内部节点，真正的 key 和 data 存储在叶子节点上</strong> 。</li>
+<li><strong>n 个 key 值的节点指针域为 n 而不是 n+1</strong>。</li>
+</ul>
+
+<p>如下图为一颗B+树：</p>
+
+<p><img src="https://img-blog.csdn.net/20160113150651004" alt="B+树" title=""></p>
+
+<p>因为内节点并不存储 data，所以一般B+树的叶节点和内节点大小不同，而B-树的每个节点大小一般是相同的，为一页。</p>
+
+<p>为了增加 <strong>区间访问性</strong>，一般会对B+树做一些优化。 <br>
+如下图带顺序访问的B+树。</p>
+
+<p><img src="https://img-blog.csdn.net/20160113151941666" alt="带顺序访问的B+树" title=""></p>
+
+<hr>
+
+
+
+<h2 id="b-树和b树的区别">B-树和B+树的区别</h2>
+
+<p><strong>1.B+树内节点不存储数据，所有 data 存储在叶节点导致查询时间复杂度固定为 log n。而B-树查询时间复杂度不固定，与 key 在树中的位置有关，最好为O(1)</strong>。</p>
+
+<p>如下所示B-树/B+树查询节点 key 为 50 的 data。</p>
+
+<p><strong>B-树</strong></p>
+
+<p><img src="https://img-blog.csdn.net/20160114151025865" alt="B-树" title=""></p>
+
+<p>从上图可以看出，key 为 50 的节点就在第一层，B-树只需要一次磁盘 IO 即可完成查找。所以说B-树的查询最好时间复杂度是 <strong>O(1)</strong>。</p>
+
+<hr>
+
+<p><strong>B+树</strong></p>
+
+<p><img src="https://img-blog.csdn.net/20160114152027148" alt="B+树" title=""></p>
+
+<p>由于B+树所有的 data 域都在根节点，所以查询 key 为 50的节点必须从根节点索引到叶节点，时间复杂度固定为 <strong>O(log n)</strong>。</p>
+
+<hr>
+
+<p><strong>2.B+树叶节点两两相连可大大增加区间访问性，可使用在范围查询等，而B-树每个节点 key 和 data 在一起，则无法区间查找</strong>。</p>
+
+<p><img src="https://img-blog.csdn.net/20160114152644880" alt="B+树" title=""></p>
+
+<blockquote>
+<p>根据空间局部性原理：如果一个存储器的某个位置被访问，那么将它附近的位置也会被访问。</p>
+</blockquote>
+
+<p>B+树可以很好的利用局部性原理，若我们访问节点 key为 50，则 key 为 55、60、62 的节点将来也可能被访问，我们可以<strong>利用磁盘预读原理提前将这些数据读入内存，减少了磁盘 IO 的次数</strong>。 <br>
+当然B+树也能够很好的完成范围查询。比如查询 key 值在 50-70 之间的节点。</p>
+
+<hr>
+
+<p><strong>3.B+树更适合外部存储。由于内节点无 data 域，每个节点能索引的范围更大更精确</strong></p>
+
+<p>这个很好理解，由于B-树节点内部每个 key 都带着 data 域，而B+树节点只存储 key 的副本，真实的 key 和 data 域都在叶子节点存储。前面说过磁盘是分 block 的，一次磁盘 IO 会读取若干个 block，具体和操作系统有关，那么由于磁盘 IO 数据大小是固定的，在一次 IO 中，<strong>单个元素越小，量就越大</strong>。这就意味着<strong>B+树单次磁盘 IO 的信息量大于B-树</strong>，从这点来看B+树相对B-树磁盘 IO 次数少。</p>
+
+<p><img src="https://img-blog.csdn.net/20160114155338730" alt="B/B+树" title=""></p>
+
+<p>从上图可以看出相同大小的区域，B-树仅有 2 个 key，而B+树有 3 个 key。</p>
+
+<hr>
+
+
+
+<h2 id="为什么-mongodb-索引选择b-树而-mysql-索引选择b树">为什么 MongoDB 索引选择B-树，而 Mysql 索引选择B+树</h2>
+
+<p>这些内容了解后，我们来看<strong>为什么 MongoDB 索引选择B-树，而 Mysql （InooDB 引擎）索引选择B+树</strong>。</p>
+
+<p>Mysql 大家应该比较熟悉，传统的关系型数据库，下面介绍下 MongoDB。</p>
+
+<p>来看下 wiki 百科上 MongoDB 的定义：</p>
+
+<blockquote>
+<p>MongoDB (from humongous) is a cross-platform document-oriented database. Classified as a NoSQL database, MongoDB eschews the traditional table-based relational database structure in favor of JSON-like documents with dynamic schemas (MongoDB calls the format BSON)</p>
+</blockquote>
+
+<p>这段话的大致意思是 MongoDB 是文档型的数据库，是一种 nosql，它使用类 Json 格式保存数据。</p>
+
+<p>文档型数据库和我们常见的关系型数据库不同，一般使用 XML 或 Json 格式来保存数据，归属于<strong>聚合型数据库</strong>。</p>
+
+<blockquote>
+<p>键值数据库也属于聚合型数据库，熟悉 Redis 的同学应该很好理解。</p>
+</blockquote>
+
+<p>举个例子：</p>
+
+<p>加入我们要建立一个电子商务网站，类似淘宝这种将商品销售给用户，那么必须存储用户信息、商品目录、订单、收货地址、账单地址、付款方式等。</p>
+
+<p>看下传统的关系型数据库是如何存储的：</p>
+
+<p><img src="https://img-blog.csdn.net/20160114163436266" alt="关系型数据库" title=""></p>
+
+<p>聚合型数据库存储模型：</p>
+
+<p><img src="https://img-blog.csdn.net/20160114163541023" alt="聚合型数据库" title=""></p>
+
+<p>用类似 Json 的格式表示如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-c++ hljs r">//Customer
+{
+<span class="hljs-string">"id"</span>:<span class="hljs-number">1</span>,
+<span class="hljs-string">"name"</span>:Tom,
+<span class="hljs-string">"billingAddress"</span>:[{<span class="hljs-string">"city"</span>:<span class="hljs-string">"China"</span>}]
+}
+
+//Orders
+{
+<span class="hljs-string">"id"</span>:<span class="hljs-number">99</span>,
+<span class="hljs-string">"orderItem"</span>:[
+<span class="hljs-string">"productId"</span><span class="hljs-number">27</span>,
+<span class="hljs-string">"price"</span>:<span class="hljs-number">100</span>,
+<span class="hljs-string">"productName"</span>:book
+],
+<span class="hljs-string">"shippingAddress"</span>:[{<span class="hljs-string">"city"</span>:<span class="hljs-string">"china"</span>}],
+<span class="hljs-string">"orderPayment"</span>:[
+<span class="hljs-keyword">...</span>
+]   
+}</code></pre>
+
+<p>相对于 Mysql 关系型数据库，MongoDB 这类 nosql 适用于<strong>数据模型简单，性能要求高的场合</strong></p>
+
+<hr>
+
+<h3 id="为什么-mongodb-使用b-树">为什么 MongoDB 使用B-树</h3>
+
+<p>MongoDB 是一种 nosql，也存储在磁盘上，被设计用在 <strong>数据模型简单，性能要求高的场合</strong>。性能要求高，看看B/B+树的区别第一点：</p>
+
+<blockquote>
+<p><strong>B+树内节点不存储数据，所有 data 存储在叶节点导致查询时间复杂度固定为 log n。而B-树查询时间复杂度不固定，与 key 在树中的位置有关，最好为O(1)</strong></p>
+</blockquote>
+
+<p>我们说过，尽可能少的磁盘 IO 是提高性能的有效手段。MongoDB 是聚合型数据库，而 <strong>B-树恰好 key 和 data 域聚合在一起</strong>。</p>
+
+<hr>
+
+<h3 id="为什么-mysql-使用b树">为什么 Mysql 使用B+树</h3>
+
+<p>Mysql 是一种关系型数据库，区间访问是常见的一种情况，而 B-树并不支持区间访问（可参见上图），而<strong>B+树由于数据全部存储在叶子节点，并且通过指针串在一起，这样就很容易的进行区间遍历甚至全部遍历</strong>。见B/B+树的区别第二点：</p>
+
+<blockquote>
+<p><strong>B+树叶节点两两相连可大大增加区间访问性，可使用在范围查询等，而B-树每个节点 key 和 data 在一起，则无法区间查找</strong>。</p>
+</blockquote>
+
+<p>其次B+树的查询效率更加稳定，数据全部存储在叶子节点，查询时间复杂度固定为 <strong>O(log n)</strong>。</p>
+
+<p>最后第三点：</p>
+
+<blockquote>
+<p>B+树更适合外部存储。由于内节点无 data 域，每个节点能索引的范围更大更精确</p>
+</blockquote>
+
+<hr>
+
+<p>本文完，若有错误之处，还望指正:)</p>
+
+<p></p>            </div>

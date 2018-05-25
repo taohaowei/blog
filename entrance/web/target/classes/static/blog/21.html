@@ -1,0 +1,163 @@
+<div class="container"><h1 id="使用java将任意封装对象转换成jsonxml文件与对象之间的相互转化">使用JAVA将任意封装对象转换成JSON、XML文<br/>件与对象之间的相互转化</h1>
+
+<pre><code>新学的一些实用小技巧，记录下来，以便忘记
+本文共两个使用点
+</code></pre>
+
+<ol>
+<li><strong>XML文件与对象之间的相互转化</strong></li>
+<li><strong>将任意封装对象转换成JSON格式</strong></li>
+</ol>
+
+
+
+<hr>
+
+
+
+<h2 id="1xml文件与对象之间的相互转化">1、XML文件与对象之间的相互转化</h2>
+
+<pre><code>1、实现将xml格式的文件转换成实体对象。
+    1.1 读取xml文件，得到String类型的xml字符串
+    1.2 将xml字符串转换成实体对象
+2、将实体对象转换成xml文件
+    2.1 将实体对象转换成xml格式字符串
+    2.2 将xml字符串写入xml文件
+</code></pre>
+
+<blockquote>
+  <p>我们先来看看xml文档和封装对象实体的格式</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">//xml文件内容格式
+
+<span class="hljs-pi">&lt;?xml version='1.0' encoding='UTF-8'?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">ROOT</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">id</span>&gt;</span>1<span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">cityName</span>&gt;</span>北京<span class="hljs-tag">&lt;/<span class="hljs-title">cityName</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">ROOT</span>&gt;</span></code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//城市实体对象，这里只贴封装成员变量</span>
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> City {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String cityName;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">City</span>() {
+    }
+    <span class="hljs-comment">//。。。。setter和getter</span>
+    <span class="hljs-comment">//省略</span>
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//代码1实现，从xml转换成对象</span>
+
+<span class="hljs-keyword">public</span> City <span class="hljs-title">xmlToObject</span>()
+    {
+        <span class="hljs-comment">//创建City实例</span>
+        City city = <span class="hljs-keyword">new</span> City();
+        <span class="hljs-keyword">try</span> {
+            StringBuilder sb = <span class="hljs-keyword">new</span> StringBuilder();
+            <span class="hljs-comment">//读取tmp.xml文件，并将其存入StringBuilder中得到xml字符串</span>
+            BufferedReader br = <span class="hljs-keyword">new</span> BufferedReader(<span class="hljs-keyword">new</span> InputStreamReader(<span class="hljs-keyword">new</span> FileInputStream(<span class="hljs-string">"tmp.xml"</span>)));
+            String src ;
+            <span class="hljs-keyword">while</span> ((src=br.readLine())!=<span class="hljs-keyword">null</span>)
+            {
+                sb.append(src);
+            }
+            <span class="hljs-comment">//得到xml字符串</span>
+            String xml = sb.toString();
+            <span class="hljs-comment">//读取xml的字符流</span>
+            StringReader sr = <span class="hljs-keyword">new</span> StringReader(xml);
+            <span class="hljs-comment">//将字符流转换成输入流，方便dom解析xml</span>
+            InputSource <span class="hljs-keyword">is</span> = <span class="hljs-keyword">new</span> InputSource(sr);
+            <span class="hljs-comment">//利用DOM工厂创建DOM解析实例</span>
+            DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance()
+                    .newDocumentBuilder();
+            <span class="hljs-comment">//利用dom实例，解析xml文件</span>
+            Document document = documentBuilder.parse(<span class="hljs-keyword">is</span>);
+            <span class="hljs-comment">//得到对应ID结点列表</span>
+            NodeList idNode = document.getElementsByTagName(<span class="hljs-string">"id"</span>);
+            <span class="hljs-comment">//若id结点列表不为空,则给城市信息赋值</span>
+            <span class="hljs-keyword">if</span> (idNode.item(<span class="hljs-number">0</span>) != <span class="hljs-keyword">null</span>) {
+                city.setId(Integer.valueOf(idNode.item(<span class="hljs-number">0</span>).getTextContent()));
+            }
+            NodeList cityNameNode = document.getElementsByTagName(<span class="hljs-string">"cityName"</span>);
+            <span class="hljs-keyword">if</span> (cityNameNode.item(<span class="hljs-number">0</span>) != <span class="hljs-keyword">null</span>) {
+                city.setCityName(cityNameNode.item(<span class="hljs-number">0</span>).getTextContent());
+            }
+
+        } <span class="hljs-keyword">catch</span> (FileNotFoundException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        }
+
+            <span class="hljs-keyword">return</span> city;
+    }
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">//代码2实现，将对象转换成xml文件</span>
+
+    <span class="hljs-javadoc">/**
+     * 转换成xml
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toXml</span>(City city) {
+        StringBuffer xml = <span class="hljs-keyword">new</span> StringBuffer();
+        xml.append(<span class="hljs-string">"&lt;?xml version=\"1.0\" encoding=\"UTF-8\"?&gt;\n"</span>);
+        xml.append(<span class="hljs-string">"&lt;ROOT&gt;\n"</span>);
+        xml.append(<span class="hljs-string">"\t&lt;id&gt;"</span> + city.getId() + <span class="hljs-string">"&lt;/id&gt;\n"</span>);
+        xml.append(<span class="hljs-string">"\t&lt;cityName&gt;"</span> + city.getCityName() + <span class="hljs-string">"&lt;/cityName&gt;\n"</span>);
+        xml.append(<span class="hljs-string">"&lt;/ROOT&gt;"</span>);
+        <span class="hljs-keyword">return</span> xml.toString();
+    }</code></pre>
+
+
+
+<hr>
+
+
+
+<h2 id="2将任意对象转换成json格式">2、将任意对象转换成JSON格式</h2>
+
+<pre><code>实现功能：将任意封装实体bean转换成json格式。
+所需jar包：Fastjson--1.2.32
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"> <span class="hljs-comment">&lt;!--Maven引入--&gt;</span>
+ <span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/com.alibaba/fastjson --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>fastjson<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.1.39<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//实现功能。将对象转换成json字符串</span>
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">toJson</span>()
+    {   
+        <span class="hljs-comment">//通过第一步，将xml文件转换，得到城市对象</span>
+        City city = xmlToObject();
+        <span class="hljs-comment">//将对象转换成json格式的字符串</span>
+        String cityJson = JSON.toJSONString(city);
+
+        System.<span class="hljs-keyword">out</span>.println(cityJson); <span class="hljs-comment">//输出结果为---  {"cityName":"北京","id":1}</span>
+    }</code></pre>
+
+<blockquote>
+  <p>如果对您有帮助，请帮忙点击一下赞 ^^</p>
+</blockquote></div>

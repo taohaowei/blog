@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:mybatis="http://mybatis.org/schema/mybatis-spring"
+       xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+         http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd">
+
+
+    <!-- 自动扫描、并注入对象 -->
+    <context:property-placeholder location="classpath:config/dev.properties" />
+    <context:annotation-config />
+    <context:component-scan base-package="mapper"/>
+    <!-- 结束 自动扫描、并注入对象 -->
+
+    <!-- 分库分表数据源-->
+    <!--<bean id="dataSource" class="com.alipay.zdal.client.jdbc.ZdalDataSource" init-method="init">-->
+        <!--<property name="appName" value="zdal"/>-->
+        <!--<property name="appDsName" value="ShardDataSource"/>-->
+        <!--<property name="dbmode" value="dev"/>-->
+        <!--<property name="configPath" value="./config"/>-->
+        <!--&lt;!&ndash;<property name="configPath" value="classpath*:mapper/*.xml"/>&ndash;&gt;-->
+    <!--</bean>-->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="${url}"/>
+        <property name="password" value="${db.password}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="initialSize" value="${initialSize}"/>
+        <property name="maxActive" value="${maxActive}"/>
+        <property name="maxIdle" value="${maxIdle}"/>
+        <property name="minIdle" value="${minIdle}"/>
+        <property name="maxWait" value="${maxWait}"/>
+    </bean>
+    <!-- 结束 分库分表数据源 -->
+
+    <!-- 配置MyBatis的sqlSession -->
+    <mybatis:scan base-package="mapper"/>
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <!--<property name="typeAliasesPackage" value="model"/>-->
+        <property name="typeAliasesPackage" value="model"/>
+        <property name="configLocation" value="classpath:mybatis.xml"/>
+        <property name="mapperLocations" value="classpath*:mapper/*.xml"/>
+    </bean>
+    <!-- 结束 配置MyBatis的sqlSession -->
+
+    <!-- 映射Mapper目录 -->
+    <!-- Mapper配置文件的所在包名，Spring会自动查找其下的Mapper配置文件 -->
+    <!--<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">-->
+        <!--<property name="basePackage" value="mapper"/>-->
+    <!--</bean>-->
+    <!-- 结束 Mapper配置文件的所在包名，Spring会自动查找其下的Mapper配置文件 -->
+    <!-- 结束 映射Mapper目录 -->
+
+</beans>

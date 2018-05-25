@@ -1,0 +1,134 @@
+<div class="container"><h2 id="序言">序言</h2>
+
+<blockquote>
+  <p><strong>这一段是我遇上问题的过程，可以直接跳转到下面的正文</strong></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在刚写的博客<a href="http://blog.csdn.net/q6834850/article/details/75574890">《Zdal分库分表介绍、超详细一步一步搭建简单的zdal框架》</a></p>
+  
+  <p>中，是通过向线程中存放<strong>数据库远程路由</strong>来指定操作哪个数据库，在mybatis执</p>
+  
+  <p>行插引用块内容入操作时，会从数据库中取出该<strong>数据库远程路由</strong>,执行插入。代码</p>
+  
+  <p>如下：</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//得到 数据库选择器标识路由条件---确定是存在哪一个数据库中</span>
+  DBSelectorIDRouteCondition dbSelectorIDRouteCondition = <span class="hljs-keyword">new</span> DBSelectorIDRouteCondition(<span class="hljs-string">"t_blog"</span>, dbSelectorID, physicTableName);
+<span class="hljs-comment">//将分库分表添加到线程中</span>
+  ThreadLocalMap.put(ThreadLocalString.ROUTE_CONDITION, dbSelectorIDRouteCondition);</code></pre>
+
+<blockquote>
+  <p>其实zdal在执行<strong>插入</strong>、<strong>更新</strong>、<strong>删除</strong>这种<strong>有确定的索引</strong>（对应zdal-dev-rule.xml中</p>
+  
+  <p>配置的映射规则的索引），是 <strong>不需要在执行数据库操作前指定操作的数据库</strong>，可</p>
+  
+  <p>以直接进行插入、更新、删除。下面是我在直接删除时出现的报错，以及解决的</p>
+  
+  <p>过程。</p>
+</blockquote>
+
+<hr>
+
+
+
+<h2 id="处理异常正文">处理异常正文</h2>
+
+<pre><code>记一次找BUG的过程。希望能对有类似bug的你有所帮助。
+</code></pre>
+
+
+
+<h3 id="1异常错误内容">1、异常错误内容</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">### Cause: com.alipay.zdal.rule.ruleengine.exception.ZdalRuleCalculateException: 规则引擎计算出错,拆分值={id=8}</span>
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.exceptions</span><span class="hljs-preprocessor">.ExceptionFactory</span><span class="hljs-preprocessor">.wrapException</span>(ExceptionFactory<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">30</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.session</span><span class="hljs-preprocessor">.defaults</span><span class="hljs-preprocessor">.DefaultSqlSession</span><span class="hljs-preprocessor">.update</span>(DefaultSqlSession<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">200</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.session</span><span class="hljs-preprocessor">.defaults</span><span class="hljs-preprocessor">.DefaultSqlSession</span><span class="hljs-preprocessor">.delete</span>(DefaultSqlSession<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">213</span>)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.NativeMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>0(Native Method)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.NativeMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>(NativeMethodAccessorImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">57</span>)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.DelegatingMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>(DelegatingMethodAccessorImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">43</span>)
+    at java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.Method</span><span class="hljs-preprocessor">.invoke</span>(Method<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">606</span>)
+    at org<span class="hljs-preprocessor">.mybatis</span><span class="hljs-preprocessor">.spring</span><span class="hljs-preprocessor">.SqlSessionTemplate</span>$SqlSessionInterceptor<span class="hljs-preprocessor">.invoke</span>(SqlSessionTemplate<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">434</span>)
+    ... <span class="hljs-number">30</span> more
+Caused by: <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.ruleengine</span><span class="hljs-preprocessor">.exception</span><span class="hljs-preprocessor">.ZdalRuleCalculateException</span>: 规则引擎计算出错,拆分值={id=<span class="hljs-number">8</span>}
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.GroovyListRuleEngine</span><span class="hljs-preprocessor">.evalueateSamplingField</span>(GroovyListRuleEngine<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">139</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.ruleengine</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.CartesianProductBasedListResultRule</span><span class="hljs-preprocessor">.evalOnceAndAddToReturnMap</span>(CartesianProductBasedListResultRule<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">321</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.ruleengine</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.CartesianProductBasedListResultRule</span><span class="hljs-preprocessor">.evalElement</span>(CartesianProductBasedListResultRule<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">254</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.ruleengine</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.CartesianProductBasedListResultRule</span><span class="hljs-preprocessor">.eval</span>(CartesianProductBasedListResultRule<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">49</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.bean</span><span class="hljs-preprocessor">.LogicTable</span><span class="hljs-preprocessor">.calculate</span>(LogicTable<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">255</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.controller</span><span class="hljs-preprocessor">.SpringBasedRuleMatcherImpl</span><span class="hljs-preprocessor">.match</span>(SpringBasedRuleMatcherImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">71</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.controller</span><span class="hljs-preprocessor">.SpringBasedDispatcherImpl</span><span class="hljs-preprocessor">.getDBAndTables</span>(SpringBasedDispatcherImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">87</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.ZdalStatement</span><span class="hljs-preprocessor">.getExecutionMetaData</span>(ZdalStatement<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">720</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.ZdalStatement</span><span class="hljs-preprocessor">.getExecutionContext</span>1(ZdalStatement<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">562</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.ZdalStatement</span><span class="hljs-preprocessor">.getExecutionContext</span>(ZdalStatement<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">417</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.ZdalPreparedStatement</span><span class="hljs-preprocessor">.executeUpdate</span>(ZdalPreparedStatement<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">481</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.ZdalPreparedStatement</span><span class="hljs-preprocessor">.execute</span>(ZdalPreparedStatement<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">226</span>)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.NativeMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>0(Native Method)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.NativeMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>(NativeMethodAccessorImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">57</span>)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.DelegatingMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>(DelegatingMethodAccessorImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">43</span>)
+    at java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.Method</span><span class="hljs-preprocessor">.invoke</span>(Method<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">606</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.logging</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.PreparedStatementLogger</span><span class="hljs-preprocessor">.invoke</span>(PreparedStatementLogger<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">59</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.sun</span><span class="hljs-preprocessor">.proxy</span>.$Proxy24<span class="hljs-preprocessor">.execute</span>(Unknown Source)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.executor</span><span class="hljs-preprocessor">.statement</span><span class="hljs-preprocessor">.PreparedStatementHandler</span><span class="hljs-preprocessor">.update</span>(PreparedStatementHandler<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">46</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.executor</span><span class="hljs-preprocessor">.statement</span><span class="hljs-preprocessor">.RoutingStatementHandler</span><span class="hljs-preprocessor">.update</span>(RoutingStatementHandler<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">74</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.executor</span><span class="hljs-preprocessor">.SimpleExecutor</span><span class="hljs-preprocessor">.doUpdate</span>(SimpleExecutor<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">50</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.executor</span><span class="hljs-preprocessor">.BaseExecutor</span><span class="hljs-preprocessor">.update</span>(BaseExecutor<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">117</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.executor</span><span class="hljs-preprocessor">.CachingExecutor</span><span class="hljs-preprocessor">.update</span>(CachingExecutor<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">76</span>)
+    at org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.ibatis</span><span class="hljs-preprocessor">.session</span><span class="hljs-preprocessor">.defaults</span><span class="hljs-preprocessor">.DefaultSqlSession</span><span class="hljs-preprocessor">.update</span>(DefaultSqlSession<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">198</span>)
+    ... <span class="hljs-number">36</span> more
+Caused by: java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.IllegalArgumentException</span>: 调用方法失败: public java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.Object</span> RULE<span class="hljs-preprocessor">.eval</span>(java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Map</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.GroovyListRuleEngine</span><span class="hljs-preprocessor">.invoke</span>(GroovyListRuleEngine<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">176</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.GroovyListRuleEngine</span><span class="hljs-preprocessor">.imvokeMethod</span>(GroovyListRuleEngine<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">150</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.GroovyListRuleEngine</span><span class="hljs-preprocessor">.evalueateSamplingField</span>(GroovyListRuleEngine<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">132</span>)
+    ... <span class="hljs-number">59</span> more
+Caused by: java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.InvocationTargetException</span>
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.NativeMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>0(Native Method)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.NativeMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>(NativeMethodAccessorImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">57</span>)
+    at sun<span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.DelegatingMethodAccessorImpl</span><span class="hljs-preprocessor">.invoke</span>(DelegatingMethodAccessorImpl<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">43</span>)
+    at java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.Method</span><span class="hljs-preprocessor">.invoke</span>(Method<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">606</span>)
+    at <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alipay</span><span class="hljs-preprocessor">.zdal</span><span class="hljs-preprocessor">.rule</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.GroovyListRuleEngine</span><span class="hljs-preprocessor">.invoke</span>(GroovyListRuleEngine<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">172</span>)
+    ... <span class="hljs-number">61</span> more
+Caused by: groovy<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.MissingPropertyException</span>: No such property: <span class="hljs-keyword">com</span> for class: RULE
+    at org<span class="hljs-preprocessor">.codehaus</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.runtime</span><span class="hljs-preprocessor">.ScriptBytecodeAdapter</span><span class="hljs-preprocessor">.unwrap</span>(ScriptBytecodeAdapter<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">49</span>)
+    at org<span class="hljs-preprocessor">.codehaus</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.runtime</span><span class="hljs-preprocessor">.callsite</span><span class="hljs-preprocessor">.GetEffectivePogoPropertySite</span><span class="hljs-preprocessor">.getProperty</span>(GetEffectivePogoPropertySite<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">71</span>)
+    at org<span class="hljs-preprocessor">.codehaus</span><span class="hljs-preprocessor">.groovy</span><span class="hljs-preprocessor">.runtime</span><span class="hljs-preprocessor">.callsite</span><span class="hljs-preprocessor">.AbstractCallSite</span><span class="hljs-preprocessor">.callGroovyObjectGetProperty</span>(AbstractCallSite<span class="hljs-preprocessor">.java</span>:<span class="hljs-number">241</span>)
+    at RULE<span class="hljs-preprocessor">.eval</span>(script1501492281398<span class="hljs-preprocessor">.groovy</span>:<span class="hljs-number">1</span>)
+    ... <span class="hljs-number">66</span> more</code></pre>
+
+
+
+<h3 id="2解决过程">2、解决过程</h3>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 报错是<strong>ZdalRuleCalculateException：规则引擎计算出错,拆分值={id=8}</strong></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在检查了三遍相关配置文件，还有路由规则，还是没找到问题。实在没办法后，我通过设置断点，debug查看源码。定位到执行出错的地方在最后调用Method.invoke方法，如下图：</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20170731174010063?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;发现method中参数不对，同我配置的映射规则不对，然后我开始定位是哪一步导致method中参数出的问题，发现method是在GroovyListRuleEngine类中初始化加载，随后我断点设置在初始化开始debug，如下图：</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20170731174540640?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;问题查到这儿，发现这里的expression表达式对应的值不对，方法名对了，但是报名没有完全对上，个人的 zdal-dev.rule.xml配置文件为：</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20170731174838998?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+
+
+<h3 id="3解决问题">3、解决问题</h3>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;导致BUG出现的还是配置文件出错，大家别光看<strong>类名.方法名以及方法内容是否出错</strong>，<strong>再次检查一下前置包名是否有问题。</strong></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;最后的结果很简单，寻找的过程比较曲折，绕了很多的弯，技巧就是耐心的看下去，会能看到zdal框架的一个运行整体流程。</p>
+</blockquote></div>

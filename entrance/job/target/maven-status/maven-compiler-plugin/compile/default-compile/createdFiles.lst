@@ -1,0 +1,2 @@
+config\JobConfiguration.class
+job\BlogBackupJob.class

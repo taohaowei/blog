@@ -7,9 +7,9 @@
 .project
 .settings      
  ##filter databfile、sln file##
+*.iml
 *.mdb  
-bolgBelongTao.iml
-*.ldb  
+*.ldb
 *.sln    
 ##class file##
 *.com  

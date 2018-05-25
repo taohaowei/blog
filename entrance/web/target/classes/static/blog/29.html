@@ -1,0 +1,304 @@
+
+<h1 id="原创深入剖析-string-在jvm中存储结构分析">（原创）深入剖析 String—-在JVM中存储结构分析</h1>
+
+<p><a style="color:#FC5185;" href="http://www.mynight.top//blog/toNextBlog.html?blogId=29">转载请标明出处，谢谢~！^^，有问题一起讨论 _______by-陶浩伟</a></p>
+
+<blockquote>
+  <p>近来复习String，探索String在JVM中是怎么存储的，查阅相关博客、文章，发现绝大部分文章讲的很浅、要么干脆是错的。经历一番探索和总结后，强烈的愿望把它写出来，帮助更多人理解String。</p>
+</blockquote>
+
+<p>————————————-我是一条正文分割线————————————-</p>
+
+<blockquote>
+  <p>我们利用几个例子，从简单的开始，引导出结论</p>
+</blockquote>
+
+
+
+<h3 id="例一"><strong>例一：</strong></h3>
+
+<blockquote>
+  <p>例一：利用直接赋值和new创建两个对象a和b，值都为“abc”，比较a==b和a.equals(b)，代码返回值如下：</p>
+</blockquote>
+
+<pre><code> /**
+ * Created by 陶浩伟 on 2017/10/16.
+ * 本人新建博客：www.mynight.top
+ * 欢迎交友和指正 ^_^
+ */
+public class TestStringInJVM {
+    public static void main(String[] args) {
+        String a = "abc";
+        String b = new String("abc");
+        System.out.println(a==b);    // false
+        System.out.println(a.equals(b));  // true;
+    }
+    }
+</code></pre>
+
+<blockquote>
+  <p>输出的结果很容易理解，a和b都是引用类型的对象，==比较的是引用指向的地址，而equals(String s)比较的是两个对象的值是否相等。 <br>
+  由此结果可推导出JVM中内存分布情况，如下图： <br>
+  <img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_01.png" alt="图一" title="">假设：引用对象a指址0x1f，引用对象b指向0x4d 。 <br>
+  a==b : 比较的是0x1f == 0x4d  结果为flase； <br>
+  a.equals(b)：比较的对应地址的值，等同于是”abc” == “abc”，结果为true；</p>
+</blockquote>
+
+<p><strong>上述结果是绝大部分人的认知，看似正确，但是JVM对于String的分配真的如此吗？</strong></p>
+
+<blockquote>
+  <p><strong>答案是否定的！</strong></p>
+</blockquote>
+
+
+
+<h3 id="我们来看第二个例子先贴一段代码"><strong>我们来看第二个例子，先贴一段代码</strong></h3>
+
+<pre><code>/**
+
+* Created by 陶浩伟 on 2017/10/16.
+ * 本人新建博客：www.mynight.top
+ * 欢迎交友和指正 ^_^
+ */
+public class TestStringInJVM {
+    public static void main(String[] args) throws InterruptedException, ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
+        String a = "abc";//------1
+    String b = new String("abc");//------2
+    String c = new String("abc").intern();//------3 //或者用b.intern()，结果一样
+
+        System.out.println(a==b); //false
+        System.out.println(a.equals(b));//true
+        System.out.println(a==c); //true
+        System.out.println(b==c); //false
+    }
+}
+</code></pre>
+
+<blockquote>
+  <p>创建三个String对象a、b、c</p>
+  
+  <p>c和b的创建方式有所不同，利用了String.intern();方法</p>
+  
+  <p>从上面得到的结果我们可以发现，b与c的地址指向不同，而a和c所指向的地址是一样的</p>
+  
+  <p>比较容易能得出，是String.intern();方法在其中发挥了作用。</p>
+  
+  <p>那么，<strong>调用intern()方法后，JVM做了事，使得a、c的地址一致？</strong></p>
+  
+  <p><strong>以及，为什么说上例一种的结论是错的?</strong></p>
+  
+  <p><strong>在解释intern前，大家可以先参考我的另一篇博客<a href="http://www.mynight.top/blog/toNextBlog.html?blogId=27">JVM常量池构造详解</a>，了解JVM常量池构造后，再看下面的推导会比较得心应手。</strong></p>
+  
+  <p><strong>JVM在创建某String对象时,分三种情况（比如”abc”）</strong></p>
+</blockquote>
+
+<p><strong>情况一：String a = new String(“abc”);</strong></p>
+
+<blockquote>
+  <p><strong>1、JVM在堆空间创建一个对象abc，将栈中引用指针a指向该地址空间。</strong>    </p>
+</blockquote>
+
+<p><strong>情形二：String b = “abc”;</strong></p>
+
+<blockquote>
+  <p><strong>1、首先，JVM会在方法区中全局字符串池（string pool）中检索，判断是否已经创建过这个对象值</strong></p>
+  
+  <p><strong>2、如果没有，则在 堆 中创建这个String对象，同时将这个对象的地址保存在全局字符串池中。如果存在，省略第二步。</strong></p>
+  
+  <p><strong>3、将引用指针b指向全局字符串池中指向第二步创建的String对象</strong></p>
+</blockquote>
+
+<p><strong>情形三：String c = new String(“abc”).intern();</strong></p>
+
+<blockquote>
+  <p><strong>1、使用intern方法后，创建的方式与情形二一致。同样优先从全局字符串中查找，判断是否已经创建过这个对象值。</strong> <br>
+  <strong>2、同情形二中第二步。</strong> <br>
+  <strong>3、同情形二中第三步。</strong></p>
+</blockquote>
+
+<p>JVM内图示结构如下（c与a的指针指向一致）：</p>
+
+<blockquote>
+  <p><img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_04.png" alt="enter image description here" title=""></p>
+</blockquote>
+
+<p><strong>结论：在上述情形三中，在调执行new String(“abc”).intern();时，JVM也会按照情形二步骤执行。所以就有了a与c的指向地址相等。而b由于创建的时候是在堆中new的新空间，所以b与c地址是不同的。</strong></p>
+
+
+
+<h2 id="上述的结论似乎证明了string在内存中的布局大部分博客止步于此但是经过测试上述结论还是错的"><strong>上述的结论似乎证明了String在内存中的布局，大部分博客止步于此。但是经过测试，上述结论还是错的。</strong></h2>
+
+
+
+<h3 id="例三">例三：</h3>
+
+<blockquote>
+  <p>先看String的内部结构: <br>
+  <img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_06.png" alt="enter image description here" title=""></p>
+</blockquote>
+
+<hr>
+
+<blockquote>
+  <p>我们利用反射强制获取String内用于存储值的value对象。由于valus是不可变的，这里更改权限，<strong>大家猜猜看下述代码的结果是什么？</strong></p>
+</blockquote>
+
+<pre><code>/**
+ * Created by 陶浩伟 on 2017/10/16.
+ * 本人新建博客：www.mynight.top
+ * 欢迎交友和指正 ^_^
+ */
+public class TestStringInJVM {
+    public static void main(String[] args) throws InterruptedException, ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
+
+        String a = new String("abc");
+        String b = new String("abc");
+
+        //获取values对象
+        Class clazz = String.class;
+        Field value = clazz.getDeclaredField("value");
+        value.setAccessible(true);//打开权限
+
+        //修改a的ch值
+        char cha[] = (char[]) value.get(a);
+        cha[1] = '陶';
+
+         System.out.println(a==b);//false
+        //输出a和b
+        System.out.println(a);
+        System.out.println(b);
+    }
+}
+</code></pre>
+
+<hr>
+
+<p>有兴趣可以复制这段代码运行一下，会得到两个一样的结果。 <br>
+输出： a陶c <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a陶c</p>
+
+
+
+<hr>
+
+<blockquote>
+  <p><strong>我们按照例二的思路来分析这段代码：</strong></p>
+  
+  <p><strong>1、并未直接赋值（String a = “abc”;）和使用intern()方法</strong> <br>
+  <strong>2、均使用new创建对象，所以全局字符串池中不存在并未被触发</strong> <br>
+  <strong>所以理应是在堆中创建了地址不同的两个对象a和b。</strong></p>
+</blockquote>
+
+<hr>
+
+<blockquote>
+  <p><strong>而上述代码运行结果告诉我们，事实上，a和b指向的是同一个value数组，并且外壳（String对象地址）不同。</strong></p>
+  
+  <p><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;且由此可以推导出，实际上使用new关键字创建String对象时，这个字符的引用存入全局字符串池中。区别在于直接赋值(String a = “abc”;)时，栈中引用类型a会直接指向这个全局字符串池中的指针，而new创建(String b = new String(“abc”)）的对象会在堆中创建一个对象，而其中的value仍指向的是全局字符串池中的指针。</strong></p>
+</blockquote>
+
+<hr>
+
+<blockquote>
+  <p><strong>想像成一个人。</strong> <br>
+  <strong>String a = “abc”时，a指向的是本体，就是不穿衣服的身体</strong> <br>
+  <strong>而String b = new String (“abc”);指向的是衣服，但是衣服下面包裹的还是人。</strong></p>
+</blockquote>
+
+<p>上述结论可以推导出下面这幅图：</p>
+
+<p><img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_05.png" alt="" title=""></p>
+
+
+
+<h2 id="one-more-thing"><strong>One More Thing</strong></h2>
+
+<p>还有一件事（/斜眼笑），大家能猜到下面的代码结果是什么？</p>
+
+<pre><code>/**
+ * Created by 陶浩伟 on 2017/10/16.
+ * 本人新建博客：www.mynight.top
+ * 欢迎交友和指正 ^_^
+ */
+public class TestStringInJVM {
+    public static void main(String[] args) throws InterruptedException, ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
+        String a = new String("a")+new String("b")+new String("c");//------3 //或者用b.intern()，结果一样
+        String b = new String("abc");//------3 //或者用b.intern()，结果一样
+        String c = new String("abc");//------3 //或者用b.intern()，结果一样
+        //获取values对象
+        Class clazz = String.class;
+        Field value = clazz.getDeclaredField("value");
+        value.setAccessible(true);//打开权限
+        //修改a的ch值
+        char cha[] = (char[]) value.get(a);
+        cha[1] = '陶';
+        //修改b中ch[1]的值
+         cha = (char[]) value.get(b);
+        cha[1] = '浩';
+//        //输出a和b
+        System.out.println(a);
+        System.out.println(b);
+        System.out.println(c);
+    }
+}
+</code></pre>
+
+
+
+<h4 id="如果猜到了结果又是为什么呢"><strong>如果猜到了结果，又是为什么呢？</strong></h4>
+
+<hr><hr><hr><hr>
+
+
+
+<h2 id="由结果导向得到的结论仅供参考"><strong>最终结论：(结果导向，欢迎大家和我讨论）</strong></h2>
+
+<p><strong>JVM在创建某String对象时，共分四种情况（比如”abc”）</strong></p>
+
+<p><strong>情况一：String a = new String(“abc”);</strong></p>
+
+<blockquote>
+  <p><strong>1、JVM在堆空间创建一个对象abc，将栈中引用指针a指向该地址空间。</strong>    </p>
+</blockquote>
+
+<p><strong>情形二：String b = “abc”;</strong></p>
+
+<blockquote>
+  <p><strong>1、首先，JVM会在方法区中全局字符串池（string pool）中检索，判断是否已经创建过这个对象值</strong></p>
+  
+  <p><strong>2、如果没有，则在 堆 中创建这个String对象，同时将这个对象的地址保存在全局字符串池中。如果存在，省略第二步。</strong></p>
+  
+  <p><strong>3、将引用指针b指向全局字符串池中指向第二步创建的String对象</strong></p>
+</blockquote>
+
+<p><strong>情形三：String c = new String(“abc”).intern();</strong></p>
+
+<blockquote>
+  <p><strong>1、使用intern方法后，创建的方式与情形二一致。同样优先从全局字符串中查找，判断是否已经创建过这个对象值。</strong> <br>
+  <strong>2、同情形二中第二步。</strong> <br>
+  <strong>3、同情形二中第三步。</strong></p>
+</blockquote>
+
+<p><strong>情形四：String c = new String(“a”) + new String(“b”) + new String(“c”);</strong></p>
+
+<blockquote>
+  <p>这种情况最为特殊，这时创建的String对象，在JVM编译时，会将其解释为StringBuilder，使用append的方法对a、b、c进行叠加，然后使用StringBudilder.toString()方法将值赋值给c引用。</p>
+  
+  <p>情形四的代码类等同于下图：（实际过程中应该是创建了很多个StringBuilder对象，进行append操作，这里简化了，方便理解） <br>
+  <img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_07.png" alt="enter image description here" title=""></p>
+  
+  <p>我们观察图中第二行代码，为什么这样创建得到的String对象c中value值不一样呢？我们顺着StringBuilder.toString（）方法向下查看</p>
+  
+  <p><img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_08.png" alt="enter image description here" title=""></p>
+</blockquote>
+
+<hr>
+
+<blockquote>
+  <p><strong>沿着public String(char value[], int offset, int count)方法向下查找。可以发现，最终调用的是一个JNI方法，利用C、C++语言直接读取磁盘的值的操作。并没有利用JVM的流程创建。所以不适用于上述的情况~</strong></p>
+</blockquote>
+
+<p><img src="http://my-night.oss-cn-beijing.aliyuncs.com/pic/String_JVM_09.png" alt="enter image description here" title=""></p>
+
+<p>(完) <br>
+<a style="color:#FC5185;" href="http://www.mynight.top//blog/toNextBlog.html?blogId=29">转载请标明出处，谢谢~！^^，有问题一起讨论 _______by-陶浩伟</a></p>

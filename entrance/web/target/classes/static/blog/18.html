@@ -1,0 +1,282 @@
+<div class="container"><p><a href="http://blog.csdn.net/q6834850%20%E2%80%9C%E9%99%B6%E6%B5%A9%E4%BC%9F%E2%80%9D">转载请标明出自：http://blog.csdn.net/q6834850 </a></p>
+
+
+
+<h2 id="回顾总结第九届中国云计算大会">回顾总结—–第九届中国云计算大会</h2>
+
+<blockquote>
+  <p><strong>序言：</strong> 作为一名大三的初级程序员，这次很荣幸的参与这次云计算大会的全过程，收获颇多。让我对未来几年的技术发展方向、已经已有技术的发展阶段、以及一些新有名词的概念有了一个清晰的认知，记此为大会的一些<strong>特色概括</strong>以及<strong>知识点总结</strong>。</p>
+</blockquote>
+
+<p><strong>特色及知识点有：</strong> <br>
+ 1. 云计算、大数据、AI的关系 <br>
+ 2. 软件定义网络 <br>
+ 3. OpenStack <br>
+ 4. 公有云、私有云、混合云 <br>
+ 5. Iaas、Paas、Saas 三层云概念 <br>
+ 6. VMware与docker（容器） <br>
+ 7. 云安全 <br>
+ 8. 人工智能实践 <br>
+ <strong>9. 量子计算机</strong></p>
+
+<hr>
+
+
+
+<h3 id="1-云计算大数据ai的关系"><strong>1. 云计算、大数据、AI的关系</strong></h3>
+
+<blockquote>
+  <p><strong>question-1</strong>：常常听人说起云、大数据。这两者之间到底是什么关系？云计算这个词，又扮演了怎样的一个角色？</p>
+  
+  <p><strong>Answer-1</strong>：</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;<strong>第一、</strong>云的发展，云一直是一个很抽象的概念。我们使用的互联网可以称作云、云服务器提供商提供的平台是云、甚至于我们使用百度搜索，得到的一个个结果都可以理解为从云上得到的资源。我们常说的云，更多的现在趋于云服务器提供商。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;云的发展历程是希望以后的个人、企业。能够通过云来进行弹性构架服务器、以及大量运算时间的运算（<strong>就好比</strong>我们通过URI访问互联网中的资源一样，只不过现在的资源是计算这项功能，<strong>好比</strong>利用云提供商提供的超强运算能力，得到我们想要的最终结果）。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;<strong>第二</strong>、在当今这个人人生产数据的大背景下，大量的数据产生，通过上述的渠道，上传到了云（云服务器、互联网等等）上，咱们怎么能够处理这PB级别的数据呢？</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这个时候<strong>大数据诞生</strong>了。通俗的说，大数据就是<strong>利用大量的有限能力的硬件</strong>达到<strong>快速的处理</strong>这些PB级别的数据的一门技术，技术的核心在<strong>存储</strong>和<strong>运算</strong></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>第三</strong>、在理解上述的前提下，云和大数据的关系就很清晰了。<strong>云（数据的收集方）—–交给—–》大数据（数据的处理方）—–运算后—-》客户（结果的需求方）</strong>，这一套流程，名称叫做<strong>云计算</strong></p>
+</blockquote>
+
+<hr>
+
+<blockquote>
+  <p><strong>question-2</strong>：那么云、大数据与AI的关系是什么呢？</p>
+  
+  <p><strong>answer-2</strong>：谈到AI（人工智能），需要谈到机器学习（Machine Learning），这一块我只能谈谈个人理解（若有不对之处希望指出）。机器学习，一个利用<strong>模型去描述数据之间的关系</strong>，这其中的关键在于需要<strong>用大量的数据去训练构建的模型</strong>，如何构建模型，制定它的学习方向，这里涉及到一些算法，<a href="http://blog.jobbole.com/108395/">机器学习常用算法</a>。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里的关键在<strong>构建模型</strong>与<strong>数据训练</strong>，这里重点描述<strong>数据训练</strong>与大数据的关系。大部分已有的关系</p>
+  
+  <p><img src="http://img.blog.csdn.net/20170618110600109?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="流程" title=""></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在训练完后，得到相对准确的模板，产生特定的有效模板。</p>
+  
+  <p><strong>总结：经过处理得到有效的大量数据，这些数据是AI中数据训练的基础</strong></p>
+</blockquote>
+
+
+
+<h3 id="2-软件定义网络"><strong>2. 软件定义网络</strong></h3>
+
+<blockquote>
+  <p><strong>question-1</strong>：什么是软件定义网络（Software Defined Network, SDN）</p>
+  
+  <p><strong>answer-1</strong>：SDN的吸引力源自其实现网络虚拟化和网络的自动化配置，并可在云服务提供商和企业的数据中心构建可编程的网络。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;很难理解吧？个人理解，重点在<strong>虚拟化</strong>、和<strong>自动化</strong>。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>虚拟化</strong>：当公司项目上线时，可以根据软件所需要的硬件的配置，在云服务器提供商，进行虚拟化配置。由软件需求决定虚拟云硬件。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>自动化</strong>：这里虚拟化的网络，可自动化配置构建网络，也可自己构建可编程的网络。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;原来的公司项目上线，需要花费大量的金钱去购置硬件、自己调配网络。SDN的特点是减少网络配置时间，加速业务上线速度。</p>
+</blockquote>
+
+
+
+<h3 id="3-openstack"><strong>3. OpenStack</strong></h3>
+
+<blockquote>
+  <p><strong>question-1</strong>：什么是Openstack?</p>
+  
+  <p><strong>answer-1</strong>：<a href="http://baike.baidu.com/link?url=8MdaIvmSfjmXIkUiWDv7Ihb2AFjPwJhEmUo9lttFttm1Z16flIIj-FgMopWUj76b0adp9t4JqVKW_zO0dnJ3CbO2Rf1SYPBV0VAQcwsIhlm%20%E2%80%9COpenStack%E7%99%BE%E5%BA%A6%E7%99%BE%E7%A7%91%E2%80%9D">OpenStack百度百科</a></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OpenStack是一个云平台管理的项目，它不是一个软件。这个项目由几个主要的组件组合起来完成一些具体的工作。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OpenStack是一个旨在为公共及私有云的建设与管理提供软件的开源项目，OpenStack被公认作为基础设施即服务（简称IaaS）<strong>资源的通用前端</strong>。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通俗的说，就是<strong>还没开发完</strong>的用作管理网络、虚拟化、操作系统、服务器等各个方面的<strong>云平台管理项目</strong>。现在很多的云平台（类似与阿里云、亚马逊云、腾讯云、京东云等）就是在这个<strong>还没开发完</strong>的项目上接着开发，然后得到我们所看到的这么多云平台</p>
+</blockquote>
+
+<p><a href="http://blog.csdn.net/q6834850%20%E2%80%9C%E9%99%B6%E6%B5%A9%E4%BC%9F%E2%80%9D">转载请标明出自：http://blog.csdn.net/q6834850 </a></p>
+
+
+
+<h3 id="4-公有云私有云混合云"><strong>4. 公有云、私有云、混合云</strong></h3>
+
+<blockquote>
+  <p><strong>question-1</strong>：什么是公有云、私有云、混合云？</p>
+  
+  <p><strong>answer-1</strong>：</p>
+  
+  <p><strong>私有云(Private Clouds)</strong>     是为一个客户单独使用而构建的，因而提供对数据、安全性和服务质量的最有效控制。该公司拥有基础设施，并可以控制在此基础设施上部署应用程序的方式。私有云可部署在企业数据中心的防火墙内，也可以将它们部署在一个安全的主机托管场所。</p>
+  
+  <p><strong>公有云(Public Clouds)</strong>  通常指第三方提供商用户能够使使用的云，公有云一般可通过 Internet 使用，可能是免费或成本低廉的。这种云有许多实例，可在当今整个开放的公有网络中提供服务。其最大意义是能够以低廉的价格，提供有吸引力的服务给最终用户，创造新的业务价值，公有云作为一个支撑平台，还能够整合上游的服务（如增值业务，广告）提供者和下游最终用户，打造新的价值链和生态系统。</p>
+  
+  <p><strong>混合云(Mix Cloudes)</strong> . 是公有云和私有云两种服务方式的结合。混合云，是目标架构中共有云、私有云和/或者公众云的结合。由于安全和控制原因，并非所有的企业信息都能放置在公有云上，这样大部分已经应用云计算的企业将会使用混合云模式。很多将选择同时使用公有云和私有云，有一些也会同时建立公众云。</p>
+  
+  <p><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;简单的说，私有云就是你自己的家，只有自己或者你允许的人能住，一般你不愿意外人知道的隐私都放在家里；公有云就是收费景点，买了门票的都能进，隐私放这里可能会成为冠希；混合云就是两者同时存在了—-by–网络*</strong></p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;目前大部分的企业使用重心在混合云。</p>
+</blockquote>
+
+
+
+<h3 id="5-iaaspaassaas-三层云概念"><strong>5. Iaas、Paas、Saas 三层云概念</strong></h3>
+
+<blockquote>
+  <p><strong>question-1</strong>：什么是IaaS, PaaS和SaaS及其区别？</p>
+  
+  <p><strong>answer-1</strong>：</p>
+  
+  <p><strong>先来一段官方解释：</strong></p>
+  
+  <p><strong>IaaS: Infrastructure-as-a-Service（基础设施即服务）</strong></p>
+  
+  <blockquote>
+    <p>第一层叫做IaaS，有时候也叫做Hardware-as-a-Service，几年前如果你想在办公室或者公司的网站上运行一些企业应用，你需要去买服务器，或者别的高昂的硬件来控制本地应用，让你的业务运行起来。</p>
+    
+    <p>但是现在有IaaS，你可以将硬件外包到别的地方去。IaaS公司会提供场外服务器，存储和网络硬件，你可以租用。节省了维护成本和办公场地，公司可以在任何时候利用这些硬件来运行其应用。</p>
+    
+    <p>一些大的IaaS公司包括Amazon, Microsoft, VMWare, Rackspace和Red <br>
+    Hat.不过这些公司又都有自己的专长，比如Amazon和微软给你提供的不只是IaaS，他们还会将其计算能力出租给你来host你的网站。</p>
+  </blockquote>
+  
+  <p><strong>PaaS: Platform-as-a-Service（平台即服务）</strong></p>
+  
+  <blockquote>
+    <p>第二层就是所谓的PaaS，某些时候也叫做中间件。你公司所有的开发都可以在这一层进行，节省了时间和资源。</p>
+    
+    <p>PaaS公司在网上提供各种开发和分发应用的解决方案，比如虚拟服务器和操作系统。这节省了你在硬件上的费用，也让分散的工作室之间的合作变得更加容易。网页应用管理，应用设计，应用虚拟主机，存储，安全以及应用开发协作工具等。</p>
+    
+    <p>一些大的PaaS提供者有Google App Engine,Microsoft Azure，Force.com,Heroku，Engine <br>
+    Yard。最近兴起的公司有AppFog, Mendix 和 Standing Cloud</p>
+  </blockquote>
+  
+  <p><strong>SaaS: Software-as-a-Service（软件即服务）</strong></p>
+  
+  <blockquote>
+    <p>第三层也就是所谓SaaS。这一层是和你的生活每天接触的一层，大多是通过网页浏览器来接入。任何一个远程服务器上的应用都可以通过网络来运行，就是SaaS了。</p>
+    
+    <p>你消费的服务完全是从网页如Netflix, MOG, Google Apps, Box.net,Dropbox或者苹果的iCloud那里进入这些分类。尽管这些网页服务是用作商务和娱乐或者两者都有，但这也算是云技术的一部分。</p>
+  </blockquote>
+  
+  <p><strong>大白话理解：三种其实全是提供服务，站在不同的服务层次而已。</strong></p>
+  
+  <blockquote>
+    <p>让我们拿最容易理解的电脑举例。 <br>
+    <strong>Iaas</strong>，原器件厂商相当于这一层的服务提供商，将cpu、存储器、控制器、输入输出器生产实现。提供的服务是，提供给电脑厂商去组装实现电脑。 <br>
+    <strong>Paas</strong>，电脑厂商相当于这一层的服务提供商，他们把这些器件组装成电脑，实现这个平台，提供平台服务。这些服务提供给类似与咱们的程序员，能够在这个平台上去编程。 <br>
+    <strong>Saas</strong>，程序员相当于这一层的服务提供商，我们利用平台服务开发能够运用的程序（QQ、支付宝、LOL等等）提供服务给有需求的人们。大部分人使用的程序，软件都是这一层次 <br>
+    转回来拿阿里云举例，他相当于整合了硬件、提供了云服务，让我们能在上面跑虚拟的实例ECS。他相当于整合Iaas提供Paas。</p>
+  </blockquote>
+</blockquote>
+
+
+
+<h3 id="6-vmware与docker容器"><strong>6. VMware与docker（容器）</strong></h3>
+
+<blockquote>
+  <p><strong>question-1</strong>：什么是容器（docker）？</p>
+  
+  <p><strong>官方解释</strong> <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Docker是一个开源的引擎，可以轻松的为任何应用创建一个轻量级的、可移植的、自给自足的容器。开发者在笔记本上编译测试通过的容器可以批量地在生产环境中部署，包括VMs（虚拟机）、bare metal、OpenStack 集群和其他的基础应用平台。 </p>
+  
+  <p>Docker通常用于如下场景： <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1、web应用的自动化打包和发布；  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2、自动化测试和持续集成、发布； <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3、在服务型环境中部署和调整数据库或其他的后台应用；  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4、从头编译或者扩展现有的OpenShift或Cloud Foundry平台来搭建自己的PaaS环境。</p>
+  
+  <p><strong>大白话解释</strong>：</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;VMware虚拟机相信大家都不陌生，多多少少都是用过。docker与VMware虚拟机很相像，但是又有一些不同之处。</p>
+  
+  <p><strong>不同之处在于</strong></p>
+  
+  <p>1、可在本地编程，测试通过后可以与云直接同步</p>
+  
+  <p>2、当程序出现一个新的版本时，不需要再开启一个虚拟机更新版本（不用耗费双倍的资源去跑这些进程，总占用硬件资源&gt;1）。利用docker可以利用负载均衡器负载新老版本程序的比例（总占用硬件资源为1），确认程序没问题以后可以直接替换版本。</p>
+</blockquote>
+
+
+
+<h3 id="7-云安全"><strong>7. 云安全</strong></h3>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;云计算大会的内容一直在着重的关键点在于云安全。可以说，云安全，贯彻了整个云计算大会。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;现在的很多企业都在观望，很大的重点在于数据的安全性。可以说，数据的安全问题一旦出事，很容易数据库出现被一锅端的情况。这对于绝大部分的公司、企业来说。数据安全性的保障是入驻云的先决基本条件。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;《途隆云：为了企业安全计算》—-张晓兵。演讲时举了几个很直观的数据，他们接触的攻击最大达到了1.3T单例肉鸡的攻击。但是目前据掌握的信息，最大的黑客手中掌握这4、5T的肉鸡，一旦网络空间战争爆发，攻击会达到网络间的任意角落，给整个人类信息文明带来致命的打击。</p>
+</blockquote>
+
+<p><strong>百度的云安全体系防护</strong></p>
+
+<p><img src="http://img.blog.csdn.net/20170618144450047?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+
+
+<h3 id="8-人工智能实践"><strong>8. 人工智能实践</strong></h3>
+
+<blockquote>
+  <p>人工智能实践 <br>
+  <img src="http://img.blog.csdn.net/20170618143430393?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="目前实现愿景" title=""></p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20170618143841946?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+
+
+<h3 id="9-量子计算机"><strong>9. 量子计算机</strong></h3>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;大一时学计算机组成，第一次在书上有<strong>量子计算机</strong>这个词汇。觉着那是多遥远的一件事，这次的云计算大会,量子计算机技术难点上的攻破，再次把这个遥远的名词拉到眼前，突然感觉这是一件不敢想象是事物。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;很多人可能和我一样，只是听过这个名词，却不了解如果它成功以为着什么。</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;看到这个是不是感觉很震惊？我也一样^^，光想想就会觉着很刺激。</p>
+  
+  <p><strong>现在计算机的发展存在终点。学术界称为 摩尔定律的终结。</strong></p>
+  
+  <blockquote>
+    <p>摩尔定律的技术基础是不断提高电子芯片的集成度。这个技术基础受到两个主要的物理限制：</p>
+    
+    <ol>
+    <li><p>芯片的发热（巨大耗能），甚至烧穿</p></li>
+    <li><p>终级的运算单元是单晶电子晶体管，量子效应起主要作用</p></li>
+    <li><p>量子计算机也是图灵机，它比经典计算机运算速度快在。并行运算，它的计算是对数据的变换。</p></li>
+    </ol>
+    
+    <p>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;经典计算机：对N个存储器运算一次，只变换一个数据。 <br>
+    &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;量子计算机：对N个存储器运算一次，同时变换2^N个数据。</p>
+    
+    <p>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;在求解“大数因子分解”难题{ <br>
+    &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;127 * 129=?    &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;很容易求解 <br>
+                    &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;？ * ？ = 29083   &nbsp; &nbsp; &nbsp; &nbsp;很难求解 <br>
+    &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; }</p>
+    
+    <p>&nbsp; &nbsp; &nbsp; &nbsp;当大数长度N=129时，国际联合顶尖的电脑运算求解，需要连续不断地运算8个月。如果用2000个qubit的量子计算机，只要1秒时间即可分解成功。</p>
+  </blockquote>
+</blockquote>
+
+<p>&nbsp;</p>
+
+<blockquote>
+  <p><strong>量子计算模型提出的有哪些？</strong></p>
+  
+  <p>1、基于量子图灵机（量子逻辑电路）的成为标准量子计算</p>
+  
+  <p>2、单项量子计算（光子芯片）</p>
+  
+  <p>3、分布式量子计算</p>
+  
+  <p>4、拓扑量子计算</p>
+  
+  <p>5、绝热电子计算（量子退火算法）</p>
+  
+  <p>目前最有希望的后选择是固态系统（超导、半导体量子芯片）</p>
+  
+  <p>&nbsp; &nbsp; &nbsp; &nbsp;优点：科技城（能够升级量子比特数目）</p>
+  
+  <p>&nbsp; &nbsp; &nbsp; &nbsp;缺点：同错性（相干时间和操控误差）</p>
+  
+  <p>&nbsp; &nbsp; &nbsp; &nbsp;目前技术上攻克的难点在<strong>消相干环境</strong>、<strong>量子编码</strong>。报告提到采用起码5个量子比特编码，1个罗吉比特，可以纠正消相干引起的错误。</p>
+</blockquote>
+
+<p>最后，憧憬一下量子计算机。不要觉着很遥远了。咱们的计算机也才发展多少年？</p>
+
+<p><a href="http://blog.csdn.net/q6834850%20%E2%80%9C%E9%99%B6%E6%B5%A9%E4%BC%9F%E2%80%9D">转载请标明出自：http://blog.csdn.net/q6834850 </a></p></div>

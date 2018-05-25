@@ -1,0 +1,588 @@
+<div class="container"><h2 id="idea-maven整合ssm框架超详细教程springspringmvcmybatis">IDEA-Maven整合SSM框架，超详细教程(Spring+SpringMVC+Mybatis)</h2>
+
+<blockquote>
+  <p>转载请注明：出自：<a href="http://blog.csdn.net/q6834850">http://blog.csdn.net/q6834850</a></p>
+</blockquote>
+
+<pre><code>使用这么久的SSM，到今天需要整合SSM时，依然在拼凑环境上花了很多时间，在这里记录一下，方便以后需要使用的人~
+先清晰一下创建并整合的逻辑：
+1、创建一个Maven项目，建立对应包结构以及相关配置文件。
+2、在maven的配置文件（pom.xml）中导入所有有关环境（jar包）
+3、在web.xml中做如下配置{
+        （1）配置欢迎页
+        （2）注册，并监听spring
+        （3）配置**springMVC中dispatchServlet**组件
+        （4）配置编码过滤器
+    }
+4、配置mybatis.xml{
+        （1）允许 JDBC 支持自动生成主键
+        （2）开启自动驼峰命名规则
+        （3）给包取别名
+    }
+5、配置文件jdbc.properties
+6、在applicationContext.xml中完成{
+        （1）设置动作启用定时任务
+        （2）自动扫描、并注入对象
+        （3）引入jdbc配置文件
+        （4）创建jdbc数据源
+        （5）配置MyBatis的sqlSession
+        （6）映射Mapper目录
+        （7）事务
+        （8）配置SpringMVC
+        （9）多部分文件上传
+        （10）配置json数据
+    }
+7、添加简单的类文件进行测试。（这里提供项目）
+</code></pre>
+
+<blockquote>
+  <p>由于之前写过一年多的servlet项目，因为有比较，才不得不感叹spring的强大。 <br>
+  轻量级，代码侵入性低。IOC： 对象全部交给容器管理，不用关心其初始化、使用、销毁过程。AOP，面向切面编程，不影响主程序流。 <br>
+  借助它架构清晰太多，需要自己考虑的仅仅是纯粹的业务逻辑，真的省事太多。 <br>
+  一句话总结spring：一个一站式服务框架。 <br>
+  好，废话不多说，下面我们开始动手</p>
+</blockquote>
+
+
+
+<h3 id="1创建一个maven项目建立对应包结构">1、创建一个Maven项目，建立对应包结构。</h3>
+
+<pre><code>**（1）打开idea，选择File-New-Project，创建一个项目**
+![创建项目](http://img.blog.csdn.net/20170610143834124?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+**（2）选择maven对应的webapp的模板创建，填上GroupId和 ArtifactId。**（
+</code></pre>
+
+<blockquote>
+  <p>GroupID是项目组织唯一的标识符，实际对应JAVA的包的结构，是main目录里java的目录结构。 <br>
+  ArtifactID就是项目的唯一的标识符，实际对应项目的名称，就是项目根目录的名称。 <br>
+  一般GroupID就是填com.leafive.test这样子。</p>
+</blockquote>
+
+<p>） <br>
+    <img src="http://img.blog.csdn.net/20170610144453446?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+    <img src="http://img.blog.csdn.net/20170610144712003?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+    <strong>（3）配置maven</strong>（事先没配置的转链接：<a href="http://blog.csdn.net/qq_32588349/article/details/51461182%20%E2%80%9Cmaven%E2%80%9D">这里写链接内容</a>） <br>
+    <img src="http://img.blog.csdn.net/20170610145146205?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+    <strong>（4）点击next知道finnish完成</strong> <br>
+    <strong>（5）配置项目目录结构，以及创建对应的包结构</strong> <br>
+        <strong>①、在左侧/main创建两个包，java和test</strong> <br>
+        <strong>②、配置项目目录结构{</strong> <br>
+                <strong>&nbsp;&nbsp;&nbsp;&nbsp;目的：标记对应文件夹为指定作用。</strong> <br>
+                <strong>&nbsp;&nbsp;&nbsp;&nbsp;1、sources—对应myeclipse中的src</strong> <br>
+                <strong>&nbsp;&nbsp;&nbsp;&nbsp;2、resources—对应存放配置文件的目录</strong> <br>
+                <strong>&nbsp;&nbsp;&nbsp;&nbsp;3、test—对应Junit相关测试包</strong> <br>
+    <strong>}</strong> <br>
+    <img src="http://img.blog.csdn.net/20170610145610991?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+    <img src="http://img.blog.csdn.net/20170610150420269?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+    <strong>③、创建对应包结构</strong> <br>
+    <img src="http://img.blog.csdn.net/20170610151657271?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+
+
+<h3 id="2在maven的配置文件pomxml中导入所有有关环境jar包">2、在maven的配置文件（pom.xml）中导入所有有关环境（jar包）</h3>
+
+<pre><code>    （1）、在pom.xml中导入相关环境所需jar包。{
+        spring（包含springMVC）相关，
+        mybatis相关，
+        mybatis-spring相关、
+        j2ee-API、
+        jdbc连接驱动、
+        dbcp连接池、
+        json相关、
+        上传相关。}
+    （2）、配置修改Maven默认JRE编译版本，为mabatis配置对resources文件过滤，以便idea能识别之后再dao文件夹下存在的对应持久层接口的映射文件
+**pom.xml**
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0"</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+  <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">modelVersion</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.hebeu<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>SSMSample<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">packaging</span>&gt;</span>war<span class="hljs-tag">&lt;/<span class="hljs-title">packaging</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">name</span>&gt;</span>SSMSample Maven Webapp<span class="hljs-tag">&lt;/<span class="hljs-title">name</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">url</span>&gt;</span>http://maven.apache.org<span class="hljs-tag">&lt;/<span class="hljs-title">url</span>&gt;</span>
+  <span class="hljs-comment">&lt;!--声明各个jar包的版本号--&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- spring版本号 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">spring.version</span>&gt;</span>4.2.0.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- mybatis版本号 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mybatis.version</span>&gt;</span>3.4.0<span class="hljs-tag">&lt;/<span class="hljs-title">mybatis.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--mybatis-spring版本号 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mybatis-spring.version</span>&gt;</span>1.3.0<span class="hljs-tag">&lt;/<span class="hljs-title">mybatis-spring.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- log4j日志文件管理包版本 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">slf4j.version</span>&gt;</span>1.7.7<span class="hljs-tag">&lt;/<span class="hljs-title">slf4j.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">alibaba.version</span>&gt;</span>1.1.41<span class="hljs-tag">&lt;/<span class="hljs-title">alibaba.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--javaee-api版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">javaee-api.version</span>&gt;</span>7.0<span class="hljs-tag">&lt;/<span class="hljs-title">javaee-api.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--Junit单元测试版本号 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">junit.version</span>&gt;</span>4.11<span class="hljs-tag">&lt;/<span class="hljs-title">junit.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--Java连接MySQL 版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mysql-connector-java.version</span>&gt;</span>5.1.25<span class="hljs-tag">&lt;/<span class="hljs-title">mysql-connector-java.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--commons-dbcp版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">commons-dbcp.version</span>&gt;</span>1.2.2<span class="hljs-tag">&lt;/<span class="hljs-title">commons-dbcp.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--jstl版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">jstl.version</span>&gt;</span>1.2<span class="hljs-tag">&lt;/<span class="hljs-title">jstl.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--Json-core版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">json-core.version</span>&gt;</span>2.7.5<span class="hljs-tag">&lt;/<span class="hljs-title">json-core.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--gson版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">gson.version</span>&gt;</span>2.8.0<span class="hljs-tag">&lt;/<span class="hljs-title">gson.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--commons-fileupload版本号--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">commons-fileupload.version</span>&gt;</span>1.3.1<span class="hljs-tag">&lt;/<span class="hljs-title">commons-fileupload.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">commons-codec.version</span>&gt;</span>1.9<span class="hljs-tag">&lt;/<span class="hljs-title">commons-codec.version</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--单元测试--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${junit.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+      <span class="hljs-comment">&lt;!-- 表示开发的时候引入，发布的时候不会加载此包 --&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- spring核心包 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-oxm<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-jdbc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-webmvc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context-support<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- mybatis核心包 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mybatis.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--mybatis spring 插件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mybatis-spring<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mybatis-spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 导入java ee jar 包 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>javax<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>javaee-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${javaee-api.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 导入Mysql数据库链接jar包 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>mysql<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mysql-connector-java<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mysql-connector-java.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 导入dbcp的jar包，用来在applicationContext.xml中配置数据库 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-dbcp<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-dbcp<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${commons-dbcp.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- JSTL标签类 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>jstl<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jstl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jstl.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 日志文件管理包 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- log start --&gt;</span>
+    <span class="hljs-comment">&lt;!-- 格式化对象，方便输出日志 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>fastjson<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${alibaba.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.slf4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>slf4j-log4j12<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${slf4j.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- log end --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 引入JSON --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.fasterxml.jackson.core<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-databind<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${json-core.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.google.code.gson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>gson<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${gson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 上传组件包 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-fileupload<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-fileupload<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${commons-fileupload.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-codec<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-codec<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${commons-codec.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">build</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--输出项目的文件夹名称--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">finalName</span>&gt;</span>SSMSample<span class="hljs-tag">&lt;/<span class="hljs-title">finalName</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">plugins</span>&gt;</span>
+      <span class="hljs-comment">&lt;!-- 修改maven默认的JRE编译版本
+      防止maven update project之后 把jre配置的成默认的1.5
+      根据自己的情况更改为1.7或1.8
+      --&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.maven.plugins<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>maven-compiler-plugin<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">source</span>&gt;</span>1.8<span class="hljs-tag">&lt;/<span class="hljs-title">source</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">target</span>&gt;</span>1.8<span class="hljs-tag">&lt;/<span class="hljs-title">target</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">plugins</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--为mabatis配置maven对resource文件 过滤--&gt;</span>
+    <span class="hljs-comment">&lt;!--一定要加上这段，否则dao下的Mapper文件不会被加载--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">resources</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">resource</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">directory</span>&gt;</span>src/main/java<span class="hljs-tag">&lt;/<span class="hljs-title">directory</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">includes</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">include</span>&gt;</span>**/*.properties<span class="hljs-tag">&lt;/<span class="hljs-title">include</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">include</span>&gt;</span>**/*.xml<span class="hljs-tag">&lt;/<span class="hljs-title">include</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">includes</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filtering</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">filtering</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-title">resource</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">resources</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">build</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span>
+</code></pre>
+
+
+
+<h3 id="3配置webxml">3、配置web.xml</h3>
+
+<pre><code>    **{
+        （1）配置欢迎页
+        （2）注册，并监听spring
+        （3）配置**springMVC中dispatchServlet**组件
+        （4）配置编码过滤器
+    }**
+</code></pre>
+
+<p><strong>web.xml</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+         <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span>
+         <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"</span>
+         <span class="hljs-attribute">version</span>=<span class="hljs-value">"3.0"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span>marker<span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 配置项目默认欢迎页 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file-list</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file</span>&gt;</span>index.html<span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file-list</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 配置项目默认欢迎页 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 注册Spring的配置文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>contextConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:applicationContext.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 注册Spring的配置文件 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- Spring监听器 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">listener</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">listener-class</span>&gt;</span>org.springframework.web.context.ContextLoaderListener<span class="hljs-tag">&lt;/<span class="hljs-title">listener-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">listener</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 Spring监听器 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- Spring MVC DispatcherServlet配置 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>DispatcherServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>org.springframework.web.servlet.DispatcherServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>contextConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:applicationContext.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>DispatcherServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.action<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.html<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 Spring MVC DispatcherServlet配置 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 编码过滤器 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>encodingFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>
+            org.springframework.web.filter.CharacterEncodingFilter
+        <span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>encoding<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>encodingFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.action<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.html<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 编码过滤器 --&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span>
+</code></pre>
+
+
+
+<h3 id="4配置mybatisxml">4、配置mybatis.xml</h3>
+
+<pre><code>**{
+        （1）允许 JDBC 支持自动生成主键
+        （2）开启自动驼峰命名规则
+        （3）给包取别名
+}**
+
+**mybatis.xml**
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 全局配置 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">settings</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--允许 JDBC 支持自动生成主键--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">setting</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"useGeneratedKeys"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"false"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--是否开启自动驼峰命名规则（camel case）映射，即从经典数据库列名 A_COLUMN 到经典
+   Java 属性名 aColumn 的类似映射。 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">setting</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mapUnderscoreToCamelCase"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">settings</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--给包名取别名,在mapper文件中引用包名时就直接用别名就可了--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">typeAliases</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--后续测试的类，在这里先创建一下别名，以便后期再创--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">typeAlias</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"model.User"</span> <span class="hljs-attribute">alias</span>=<span class="hljs-value">"User"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">typeAliases</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span></code></pre>
+
+
+
+<h3 id="5配置文件jdbcproperties">5、配置文件jdbc.properties###</h3>
+
+<pre><code>配置对应dbcp的参数，在spring中调用
+</code></pre>
+
+<p><strong>jdbc.properties</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor">#定义驱动类名</span>
+driverClassName=com.mysql.jdbc.Driver
+<span class="hljs-preprocessor">#定义数据库连接url，以及编码为utf-8</span>
+url=jdbc:mysql:<span class="hljs-comment">//127.0.0.1:3306/marker?useUnicode=true&amp;amp;characterEncoding=UTF-8</span>
+<span class="hljs-preprocessor">#这里的username和password前如果不加jdbc和db,在spring配置dbcp数据#池的时候，可能取不到值，而报错。</span>
+<span class="hljs-preprocessor">#定义用户名</span>
+jdbc.username=root
+<span class="hljs-preprocessor">#定义密码</span>
+db.password=root
+<span class="hljs-preprocessor">#定义初始连接数</span>
+initialSize=<span class="hljs-number">0</span>
+<span class="hljs-preprocessor">#定义最大连接数</span>
+maxActive=<span class="hljs-number">20</span>
+<span class="hljs-preprocessor">#定义最大空闲</span>
+maxIdle=<span class="hljs-number">20</span>
+<span class="hljs-preprocessor">#定义最小空闲</span>
+minIdle=<span class="hljs-number">1</span>
+<span class="hljs-preprocessor">#定义最长等待时间</span>
+maxWait=<span class="hljs-number">60000</span></code></pre>
+
+
+
+<h3 id="6配置applicationcontextxml">6、配置applicationContext.xml</h3>
+
+<pre><code>{
+        （1）设置动作启用定时任务
+        （2）自动扫描、并注入对象
+        （3）引入jdbc配置文件
+        （4）创建jdbc数据源
+        （5）配置MyBatis的sqlSession
+        （6）映射Mapper目录
+        （7）事务
+        （8）配置SpringMVC
+        （9）多部分文件上传
+        （10）配置json数据
+    }
+    **application.xml**
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xmlns:mvc</span>=<span class="hljs-value">"http://www.springframework.org/schema/mvc"</span>
+       <span class="hljs-attribute">xmlns:tx</span>=<span class="hljs-value">"http://www.springframework.org/schema/tx"</span>
+       <span class="hljs-attribute">xmlns:task</span>=<span class="hljs-value">"http://www.springframework.org/schema/task"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+        http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-4.0.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 设置动作启用定时任务 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">task:annotation-driven</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 设置动作启用定时任务 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 自动扫描、并注入对象 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"controller,service,dao"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 自动扫描、并注入对象 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 引入jdbc配置文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:property-placeholder</span> <span class="hljs-attribute">location</span>=<span class="hljs-value">"classpath:jdbc.properties"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 引入jdbc配置文件 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 创建jdbc数据源 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.commons.dbcp.BasicDataSource"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driverClassName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${driverClassName}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.username}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${db.password}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${url}"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 初始化连接大小 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"initialSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${initialSize}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 连接池最大数量 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxActive"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxActive}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 连接池最大空闲 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxIdle}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 连接池最小空闲 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minIdle}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 获取连接最大等待时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxWait"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxWait}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 创建jdbc数据源 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置MyBatis的sqlSession --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionFactoryBean"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"configLocation"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"classpath:mybatis.xml"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 配置MyBatis的sqlSession --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 映射Mapper目录 --&gt;</span>
+    <span class="hljs-comment">&lt;!-- Mapper配置文件的所在包名，Spring会自动查找其下的Mapper配置文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.mapper.MapperScannerConfigurer"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"basePackage"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dao"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 Mapper配置文件的所在包名，Spring会自动查找其下的Mapper配置文件 --&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 映射Mapper目录 --&gt;</span>
+
+
+    <span class="hljs-comment">&lt;!-- 事务 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tx:annotation-driven</span> <span class="hljs-attribute">transaction-manager</span>=<span class="hljs-value">"transactionManager"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"transactionManager"</span>
+          <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.jdbc.datasource.DataSourceTransactionManager"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 事务 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- SpringMVC 完成 --&gt;</span>
+    <span class="hljs-comment">&lt;!-- SpringMVC 自动添加控制器层返还String类型的前缀和后缀--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mvc:annotation-driven</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"internalResourceViewResolver"</span>
+          <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.web.servlet.view.InternalResourceViewResolver"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"prefix"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"/WEB-INF/"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"suffix"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">".jsp"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 SpringMVC 自动添加控制器层返还String类型的前缀和后缀--&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置拦截器 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mvc:interceptors</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mvc:interceptor</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">mvc:mapping</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/*.action"</span> /&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">mvc:mapping</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/*/*.action"</span> /&gt;</span>
+
+            <span class="hljs-comment">&lt;!-- 需排除拦截的地址 --&gt;</span>
+            <span class="hljs-comment">&lt;!--这里的action，和拦截器类都是将要创建的，一开始会报错。创建一个登录拦截器就好。path里面指的映射控制器的地址--&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">mvc:exclude-mapping</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/login.action"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"loginInterceptor"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"interceptor.LoginInterceptor"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">mvc:interceptor</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">mvc:interceptors</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 配置拦截器 --&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 SpringMVC --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 多部分文件上传 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"multipartResolver"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.web.multipart.commons.CommonsMultipartResolver"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxUploadSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"104857600"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxInMemorySize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"4096"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"defaultEncoding"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"UTF-8"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 多部分文件上传 --&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置json数据 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"messageConverters"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">ref</span> <span class="hljs-attribute">bean</span>=<span class="hljs-value">"mappingJackson2HttpMessageConverter"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mappingJackson2HttpMessageConverter"</span>
+          <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.http.converter.json.MappingJackson2HttpMessageConverter"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"supportedMediaTypes"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>text/html;charset=UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>text/json;charset=UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>application/json;charset=UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 结束 配置json数据 --&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+
+
+<h3 id="7添加简单的类文件进行测试这里提供项目">7、添加简单的类文件进行测试。（这里提供项目）</h3>
+
+<pre><code>**至此，SSM框架的整合已经完毕了，大家可以自己添加测试类进行测试**,也可参照下列项目的进行简单测试。
+</code></pre>
+
+<p><em>链接：<a href="http://pan.baidu.com/s/1ctl0Cm">http://pan.baidu.com/s/1ctl0Cm</a> 密码：kasd</em></p>
+
+<blockquote>
+  <p>转载请注明：出自：<a href="http://blog.csdn.net/q6834850">http://blog.csdn.net/q6834850</a></p>
+</blockquote></div>

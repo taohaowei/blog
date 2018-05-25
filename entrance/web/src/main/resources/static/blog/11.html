@@ -1,0 +1,345 @@
+<div class="container"><h1 id="python实现爬虫">python实现爬虫</h1>
+
+<p>最近由于参加学校举办短时速学python的比赛，学习了一遍python这门语言，原来一直认为Java语言是最牛逼的，现在发现python也有它的可取之处，它开发快，语言简洁，对于数组的处理，让我发现利用它开发一些简单的程序真的比java快^^ <br>
+下面，记录一下我利用python实现爬虫，获取百度文库词条其中包含”python”信息的样例（技术Python、Mysql）</p>
+
+<ul>
+<li><p><strong>1、爬虫架构，以及原理</strong> <br>
+爬虫重要的架构有三个，分别是URL管理器、网页下载器、网页解析器，还有一个调度器、数据输出器 <br>
+<strong>URL管理器</strong>：管理所有的URL，负责取出URL给网页下载器，并将该URL设定为以爬取 <br>
+<strong>网页下载器</strong>：将互联网对应的网页下载到本地 <br>
+<strong>网页解析器</strong>：解析网页中重要的数据信息（在本样例中为词条信息），并且从该网页中获取其他符合要求的URL，存入Mysql，以便URL管理器取 <br>
+<strong>调度器</strong>：类似与java中的main方法，相当于开启爬虫的入口，它负责初始化第一个入口URL(地址)，利用while循环依次调用URL管理器、网页下载器、网页解析器完成相关功能。 <br>
+<strong>数据输出器</strong>：将得到数据输出 <br>
+如下图：<img src="http://img.blog.csdn.net/20170606155921649?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="爬虫架构" title=""> <br>
+<img src="http://img.blog.csdn.net/20170606155944214?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p></li>
+<li><p><strong>2、代码框架</strong> <br>
+1、利用Mysql数据库， <br>
+数据库表baike_spider，账户：root,密码：0203</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-operator"><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">TABLE</span> <span class="hljs-string">`baike_spider`</span> (
+  <span class="hljs-string">`webSite`</span> <span class="hljs-keyword">varchar</span>(<span class="hljs-number">255</span>) <span class="hljs-keyword">DEFAULT</span> <span class="hljs-keyword">NULL</span>,
+  <span class="hljs-string">`isCraw`</span> <span class="hljs-keyword">int</span>(<span class="hljs-number">1</span>) <span class="hljs-keyword">DEFAULT</span> <span class="hljs-string">'0'</span>,
+  <span class="hljs-string">`title`</span> <span class="hljs-keyword">varchar</span>(<span class="hljs-number">255</span>) <span class="hljs-keyword">DEFAULT</span> <span class="hljs-keyword">NULL</span>,
+  <span class="hljs-string">`cont`</span> text,
+  <span class="hljs-keyword">KEY</span> <span class="hljs-string">`webSide`</span> (<span class="hljs-string">`webSite`</span>) <span class="hljs-keyword">USING</span> HASH
+) ENGINE=InnoDB <span class="hljs-keyword">DEFAULT</span> CHARSET=utf8;</span>
+</code></pre>
+
+<p>2、源程序框架 <br>
+<img src="http://img.blog.csdn.net/20170606160652256?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<p>3、爬取结果展示： <br>
+<img src="http://img.blog.csdn.net/20170606161654470?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+尴尬，显示的python就两三个。。 <br>
+不过没关系，肯定在没显示出来的地方^_^.</p>
+
+<ul>
+<li><strong>3、调度器</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs python"><span class="hljs-comment"># coding=utf-8</span>
+<span class="hljs-comment"># import baike_sider</span>
+<span class="hljs-keyword">import</span> url_manager, html_donloader, html_parse, html_outputer
+<span class="hljs-keyword">import</span> sys
+default_encoding = <span class="hljs-string">'utf-8'</span>
+<span class="hljs-keyword">if</span> sys.getdefaultencoding() != default_encoding:
+    reload(sys)
+    sys.setdefaultencoding(default_encoding)
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SpiderMain</span><span class="hljs-params">(object)</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self)</span>:</span>
+        <span class="hljs-comment"># 初始化四个管理器</span>
+        self.urls = url_manager.UrlManager()
+        self.donloader = html_donloader.HtmlDonload()
+        self.parse = html_parse.HtmlParse()
+        self.outputer = html_outputer.HtmlOutputer()
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">craw</span><span class="hljs-params">(self, root_url)</span>:</span>
+        <span class="hljs-comment"># 初始化urls管理器，赋初值</span>
+        self.urls.init_url(root_url)
+        <span class="hljs-comment"># 计算一个count来存储爬虫收集的网站个数</span>
+        count = <span class="hljs-number">0</span>
+        <span class="hljs-comment"># 当url管理器中还存在未被搜刮的网站，循环继续</span>
+        <span class="hljs-keyword">while</span> self.urls.has_new_url():
+            <span class="hljs-keyword">try</span>:
+                <span class="hljs-comment"># 从URL管理器中获取一个新的url地址</span>
+                new_url = self.urls.get_new_url()
+                <span class="hljs-comment"># 利用网站下载器将其下载下来</span>
+                cont = self.donloader.donload(new_url)
+                <span class="hljs-comment"># 解析器解析cont网站，得到新的urls，和新的数据</span>
+                urls, new_data = self.parse.parse(new_url, cont)
+                <span class="hljs-comment"># 将新的地址存入URL管理器</span>
+                self.urls.add_new_urls(urls)
+                <span class="hljs-comment"># 输出管理器收集这些新信息</span>
+                <span class="hljs-keyword">if</span> new_data <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">None</span>:
+                    self.outputer.collect_data(new_url, new_data)
+                <span class="hljs-comment"># 如果爬虫搜刮的网站个数到达1000，停止运行</span>
+                <span class="hljs-keyword">print</span> <span class="hljs-string">"爬完%s,得到%d个新网站，得到信息%s,%s"</span> % (new_url,len(urls),new_data.values()[<span class="hljs-number">0</span>],new_data.values()[<span class="hljs-number">1</span>])
+                <span class="hljs-keyword">print</span> <span class="hljs-string">"正在爬第%d个网站"</span> % count
+                <span class="hljs-keyword">if</span> count == <span class="hljs-number">1000</span>:
+                    <span class="hljs-keyword">break</span>
+                <span class="hljs-comment"># 统计网站个数加一</span>
+                count += <span class="hljs-number">1</span>
+            <span class="hljs-keyword">except</span> Exception,value:
+                <span class="hljs-keyword">print</span> <span class="hljs-string">"craw error  :"</span>,value
+            <span class="hljs-comment"># 返回输出管理器</span>
+            <span class="hljs-comment"># return self.outputer</span>
+        <span class="hljs-keyword">print</span> <span class="hljs-string">"craw完毕"</span>
+        <span class="hljs-keyword">pass</span>
+
+__name__ = <span class="hljs-string">"_main_"</span>
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"_main_"</span>:
+    root_url = <span class="hljs-string">"http://baike.baidu.com/item/Python"</span>
+    obj_spider = SpiderMain()
+    obj_spider.craw(root_url)</code></pre>
+
+<ul>
+<li><strong>4、URL管理器</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs python"><span class="hljs-comment"># coding=utf-8</span>
+
+<span class="hljs-keyword">import</span> MySQLdb <span class="hljs-keyword">as</span> mdb
+
+<span class="hljs-comment"># try:</span>
+<span class="hljs-comment">#             cursor = self.db.cursor()</span>
+<span class="hljs-comment">#</span>
+<span class="hljs-comment">#             self.db.commit()</span>
+<span class="hljs-comment">#         except Exception,value:</span>
+<span class="hljs-comment">#             self.db.rollback()</span>
+<span class="hljs-comment">#             print "URLManager.__init__url: ",value</span>
+<span class="hljs-comment">#         finally:</span>
+<span class="hljs-comment">#             cursor.close()</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UrlManager</span><span class="hljs-params">(object)</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self)</span>:</span>
+        self.db = mdb.connect(<span class="hljs-string">"localhost"</span>,<span class="hljs-string">"root"</span>,<span class="hljs-string">"0203"</span>,<span class="hljs-string">"bigData"</span>,charset=<span class="hljs-string">"utf8"</span>)
+        cursor = self.db.cursor()
+        delete_sql = <span class="hljs-string">'''drop table if exists baike_spider'''</span>
+        create_sql = <span class="hljs-string">'''create table if not exists baike_spider(
+                        webSite varchar(255),
+                        isCraw int(1) default '0',
+                        title varchar(255),
+                        cont text,
+                        KEY `webSide` (`webSite`) USING HASH
+                        )'''</span>
+        <span class="hljs-keyword">try</span>:
+            cursor.execute(delete_sql)
+            cursor.execute(create_sql)
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            self.db.commit()
+        <span class="hljs-keyword">except</span> Exception,value:
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"URLManager.__init__Error: "</span>,value
+            self.db.rollback()
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">init_url</span><span class="hljs-params">(self, root_url)</span>:</span>
+        <span class="hljs-keyword">try</span>:
+            cursor = self.db.cursor()
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            insert_sql = <span class="hljs-string">'''insert into baike_spider(webSite) values('%s')'''</span> % root_url
+            cursor.execute(insert_sql)
+            self.db.commit()
+        <span class="hljs-keyword">except</span> Exception,value:
+            self.db.rollback()
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"URLManager.__init__url: "</span>,value
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">has_new_url</span><span class="hljs-params">(self)</span>:</span>
+        new = <span class="hljs-number">0</span>
+        <span class="hljs-keyword">try</span>:
+            cursor = self.db.cursor()
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            select_sql = <span class="hljs-string">'''select isCraw from baike_spider where isCraw=0 limit 1'''</span>
+            new = cursor.execute(select_sql)
+        <span class="hljs-keyword">except</span> Exception,value:
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"URLManager.has_new_url: "</span>,value
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+        <span class="hljs-comment"># print 'new=',new</span>
+        <span class="hljs-keyword">return</span> new
+
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_new_url</span><span class="hljs-params">(self)</span>:</span>
+        url = <span class="hljs-string">""</span>
+        <span class="hljs-keyword">try</span>:
+            cursor = self.db.cursor()
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            select_sql = <span class="hljs-string">'''select * from baike_spider where isCraw=0 limit 1'''</span>
+            cursor.execute(select_sql)
+            url = cursor.fetchone()[<span class="hljs-number">0</span>]
+            update_sql = <span class="hljs-string">'''update baike_spider set isCraw=1 where webSite='%s' '''</span>
+            cursor.execute(update_sql % url)
+            self.db.commit()
+        <span class="hljs-keyword">except</span> Exception,value:
+            self.db.rollback()
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"URLManager.has_new_url: "</span>,value
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+        <span class="hljs-keyword">return</span> url
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">add_new_urls</span><span class="hljs-params">(self,urls)</span>:</span>
+        is_exist = <span class="hljs-string">'''select isCraw from baike_spider where webSite='%s' '''</span>
+        insert_sql = <span class="hljs-string">'''insert into baike_spider(webSite) values('%s')'''</span>
+        <span class="hljs-keyword">try</span>:
+            cursor = self.db.cursor()
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            <span class="hljs-keyword">for</span> url <span class="hljs-keyword">in</span> urls:
+                flag = cursor.execute(is_exist % url)
+                <span class="hljs-keyword">if</span> flag:<span class="hljs-keyword">continue</span>
+                <span class="hljs-keyword">else</span>:
+                    cursor.execute(insert_sql % url)
+            self.db.commit()
+        <span class="hljs-keyword">except</span> Exception,value:
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"URLManager.add_new_urls: "</span>,value
+            self.db.rollback()
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-comment"># urlManage = UrlManager()</span>
+    <span class="hljs-comment"># urlManage.has_new_url()</span>
+    <span class="hljs-comment"># urls = ["http://www.baidu.com","http://www.baidu.com4","http://www.baidu.com2","http://www.baidu.com1","http://www.baidu.com3"]</span>
+    <span class="hljs-comment"># print urlManage.add_new_urls(urls)</span>
+</code></pre>
+
+<ul>
+<li><strong>5、网页下载器</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs python"><span class="hljs-comment"># coding=utf-8</span>
+
+<span class="hljs-keyword">import</span> urllib2
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HtmlDonload</span><span class="hljs-params">()</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self)</span>:</span>
+        <span class="hljs-keyword">pass</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">donload</span><span class="hljs-params">(self, url)</span>:</span>
+        cont = <span class="hljs-string">""</span>
+        <span class="hljs-keyword">try</span>:
+            response = urllib2.urlopen(url)
+            <span class="hljs-keyword">if</span> response.getcode()==<span class="hljs-number">200</span>:
+                <span class="hljs-comment">#读取网页内容</span>
+                cont = response.read()
+                <span class="hljs-comment">#输出内容</span>
+                <span class="hljs-comment"># print cont</span>
+        <span class="hljs-keyword">except</span> Exception,value:
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"HtmlDonload(),Error"</span>,value
+        <span class="hljs-keyword">return</span> cont
+    <span class="hljs-keyword">pass</span>
+<span class="hljs-comment"># HtmlDonload().donload("http://www.baidu.com")</span></code></pre>
+
+<ul>
+<li><strong>6、网页解析器</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs python"><span class="hljs-comment"># coding=utf-8</span>
+<span class="hljs-keyword">import</span> re
+<span class="hljs-keyword">import</span> urlparse
+
+<span class="hljs-keyword">from</span> bs4 <span class="hljs-keyword">import</span> BeautifulSoup
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HtmlParse</span><span class="hljs-params">()</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self)</span>:</span>
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_get_new_urls</span><span class="hljs-params">(self, page_url, soup)</span>:</span>
+        new_urls = set()
+        links = soup.find_all(name=<span class="hljs-string">'a'</span>, href=re.compile(<span class="hljs-string">r"/item/"</span>))
+        <span class="hljs-keyword">for</span> link <span class="hljs-keyword">in</span> links:
+            new_url = link[<span class="hljs-string">'href'</span>]
+            new_full_url = urlparse.urljoin(page_url, new_url)
+            <span class="hljs-comment"># print "new_full_url = ",new_full_url</span>
+            new_urls.add(new_full_url)
+        <span class="hljs-keyword">return</span> new_urls
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_get_new_data</span><span class="hljs-params">(self, url, soup)</span>:</span>
+        res_data = {}
+        title_node = soup.find(<span class="hljs-string">"dd"</span>, class_=<span class="hljs-string">"lemmaWgt-lemmaTitle-title"</span>).find(<span class="hljs-string">"h1"</span>)
+        res_data[<span class="hljs-string">"title"</span>,] = title_node.get_text()
+        summary_node = soup.find(<span class="hljs-string">"div"</span>, class_=<span class="hljs-string">"lemma-summary"</span>)
+        res_data[<span class="hljs-string">"summary"</span>] = summary_node.get_text()
+        <span class="hljs-comment"># print "res_data = ", res_data</span>
+        <span class="hljs-keyword">return</span> res_data
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">parse</span><span class="hljs-params">(self, url, cont)</span>:</span>
+        <span class="hljs-keyword">if</span> cont <span class="hljs-keyword">is</span> <span class="hljs-keyword">None</span> <span class="hljs-keyword">or</span> url <span class="hljs-keyword">is</span> <span class="hljs-keyword">None</span>:
+            <span class="hljs-keyword">return</span>
+        <span class="hljs-comment"># 将cont传入生成一个beautifulSoup对象</span>
+        soup = BeautifulSoup(cont, <span class="hljs-string">'html.parser'</span>, from_encoding=<span class="hljs-string">'utf-8'</span>)
+        new_urls = self._get_new_urls(url, soup)
+        new_data = self._get_new_data(url, soup)
+        <span class="hljs-keyword">return</span> new_urls, new_data
+
+        <span class="hljs-comment"># parse = HtmlParse()</span>
+        <span class="hljs-comment"># parse.parse("baidu.html",open("hello.html"))</span>
+</code></pre>
+
+<ul>
+<li><strong>7、数据输出器</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs python"><span class="hljs-comment"># coding=utf-8</span>
+
+<span class="hljs-keyword">import</span> MySQLdb <span class="hljs-keyword">as</span> mdb
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HtmlOutputer</span><span class="hljs-params">()</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self)</span>:</span>
+        self.db = mdb.connect(<span class="hljs-string">"localhost"</span>,<span class="hljs-string">"root"</span>,<span class="hljs-string">"0203"</span>,<span class="hljs-string">"bigData"</span>,charset=<span class="hljs-string">"utf8"</span>)
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">collect_data</span><span class="hljs-params">(self, url, new_data)</span>:</span>
+        <span class="hljs-keyword">try</span>:
+            cursor = self.db.cursor()
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            insert_sql = <span class="hljs-string">'''update baike_spider set title='%s',cont='%s' where webSite='%s' '''</span>
+            data = new_data.values()
+            cursor.execute(insert_sql % (data[<span class="hljs-number">0</span>],data[<span class="hljs-number">1</span>],url))
+            self.db.commit()
+        <span class="hljs-keyword">except</span> Exception,value:
+            self.db.rollback()
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"HtmlOutputer.collect_data: "</span>,value
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+        <span class="hljs-keyword">pass</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">print_data</span><span class="hljs-params">(self)</span>:</span>
+        <span class="hljs-keyword">print</span> <span class="hljs-number">123</span>
+        <span class="hljs-keyword">try</span>:
+            cursor = self.db.cursor()
+            cursor.execute(<span class="hljs-string">"SET NAMES UTF8"</span>)
+            insert_sql = <span class="hljs-string">'''select * from baike_spider where isCraw=1 '''</span>
+            cursor.execute(insert_sql)
+            results = cursor.fetchall()
+            <span class="hljs-keyword">for</span> result <span class="hljs-keyword">in</span> results:
+                <span class="hljs-keyword">print</span> result[<span class="hljs-number">2</span>],result[<span class="hljs-number">3</span>]
+            self.db.commit()
+        <span class="hljs-keyword">except</span> Exception,value:
+            self.db.rollback()
+            <span class="hljs-keyword">print</span> <span class="hljs-string">"HtmlOutputer.collect_data: "</span>,value
+        <span class="hljs-keyword">finally</span>:
+            cursor.close()
+
+    <span class="hljs-keyword">pass</span>
+</code></pre></div>

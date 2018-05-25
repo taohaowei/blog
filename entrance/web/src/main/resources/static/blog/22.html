@@ -1,0 +1,215 @@
+<div class="container"><blockquote>
+  <p>公司项目需要用到redis、dubbo分布式开发、还有zdal分库分表。这段时间一直在学习相关框架、技术。这里先把redis相关知识点总结先放上来。</p>
+</blockquote>
+
+
+
+<h2 id="redis知识点总结未完">Redis知识点总结（未完）</h2>
+
+
+
+<h3 id="1-nosql">1、   NoSQL</h3>
+
+<pre><code>NoSQL 又名not only sql。是一个非关系型数据库。Web2.0比Web1.0多了很多的互动。
+传统数据库很难横向发展的，很难进行数据库的扩展。
+Web2.0，
+需求一：高并发读写。动态页面静态化的技术很难使用关系型数据库实现，
+需求二：对海量数据的高效率存储和访问的需求。
+需求三：高可扩展和高可用性
+</code></pre>
+
+<hr>
+
+
+
+<h3 id="2-nosql四大分类">2、  NoSQL四大分类</h3>
+
+<p><strong>2.1 键值对存储—Redis</strong> <br>
+<strong>2.2 列存储—hbase</strong> <br>
+<strong>2.3 文档数据库—mongoDB-查询性能不高，缺少统一的查询规则</strong> <br>
+<strong>2.4 图形数据库—infoGrid</strong></p>
+
+<hr>
+
+
+
+<h3 id="3-nosql的特点">3、  NoSQL的特点</h3>
+
+<p><strong>3.1 易扩展</strong> <br>
+<strong>3.2 灵活的数据模型</strong> <br>
+<strong>3.3 大数据量、高性能</strong> <br>
+<strong>3.4 高可用</strong></p>
+
+<hr>
+
+
+
+<h3 id="4redis安装">4、Redis安装</h3>
+
+<p><strong>4.1 所需要环境、安装</strong></p>
+
+<pre><code>VM、Linux系统 gcc环境  yum install gcc-c++   然后去官网下载redis安装包，解压后先make一下，然后make PREFIX=/usr/local/redis install
+</code></pre>
+
+<p><strong>4.2 配置conf文件</strong></p>
+
+<pre><code>拷贝redis.conf文件到安装路径下，vi将倒数的no改为yes。详细配置如下。
+</code></pre>
+
+<p><strong>4.3 启动以及关闭</strong></p>
+
+<pre><code> ./bin/redis-server ./redis.conf     
+ ./bin/redis-cli shutdown
+</code></pre>
+
+<hr>
+
+
+
+<h3 id="5-redis特性">5、  Redis特性</h3>
+
+<p><strong>5.2 多数据库</strong></p>
+
+<pre><code>A、使用select _数字选择对应数据库，最多到15
+B、使用move key名称 数据库数据 （select myredis1 1）把keymyredis1移动到1号数据库
+</code></pre>
+
+<p><strong>5.2 Redis事务</strong></p>
+
+<pre><code>使用三个指令Multi  exec  discard开始redis事务
+1、  使用multi开启事务 -----相当于是关系型数据库中的begin
+2、  使用exec提交失误 ------相当于commit
+3、  使用discard回滚    -----相当于rollback
+同关系型数据库不同之处在于，redis事务开启后运行出错，
+</code></pre>
+
+<hr>
+
+
+
+<h3 id="6redis持久化">6、redis持久化</h3>
+
+<pre><code>    Redis高效的原因在于它的数据存储在内存中，为了保证开关服务器时数据不丢失，需要将内存中的数据存储到磁盘中，这个过程叫做redis的持久化。持久化的方式有两种，可以一种单独使用，也能两种结合使用，现在大部分使用为两者结合使用。
+</code></pre>
+
+<p><strong>6.1 RDB方式</strong></p>
+
+<pre><code>A、默认支持，不需要进行配置
+B、RDP指，在指定的时间间隔内，将内存中的数据集快照，写入到磁盘中。
+
+优势：{
+    1、采用这种方式，整个redis数据库，只包含一个文件，方便备份以及恢复数据
+    2、在开始持久化时，只需要分叉处进程，可以由分线程执行
+}   
+
+缺点：{    
+    1、  无法保证数据的高性能利用性
+}
+
+实现：
+
+在redis.conf中存在
+1、Save 900 1
+2、Save 300 10
+3、Save 60 1000
+1----分别表示每十五分钟有一个key值发生变化时，执行一次
+2----分别表示每五分钟有十个key值发生变化时，执行一次
+3----分别表示每一分钟有千个key值发生变化时，执行一次
+FilenameDB-----表示数据库名称
+Dir ./   ------表示保存在当前路径下
+</code></pre>
+
+<p><strong>6.2 AOF方式</strong></p>
+
+<pre><code>AOF指、以日志的形式，记录服务器所处理的每一个操作，在redis服务器启启动时，它会读取该文件，重新构建数据库，以保证数据的完整性。
+
+优势：{
+    1、  更高的数据安全性、利用性每秒同步（效率不错，但是不够安全）、每次修改同步（同步持久化，效率比较低）、无持久化
+    2、可以根据文件重建数据库
+
+缺点：{
+    1、AOF运行效率上低于rdb
+}
+
+在redis.conf中
+appendonly no-----默认不打开，为no，改为yes打开，这个时候会产生一个appendonly.aof文件
+
+同步策略
+Appendfsync 【always everysec no】【每修改一次 每秒同步 无持久化】
+改完以后需要重启redis服务器生效
+</code></pre>
+
+<p><strong>6.3 无持久化</strong></p>
+
+<pre><code>    这时，redis就是一个缓存的机制，需要在conf配置文件中禁用持久化
+</code></pre>
+
+<p><strong>6.4 RDB和AOF结合的方式</strong></p>
+
+<pre><code>    按照上述配置AOF和RDB同时配置即可，现在大部分的redis使用为两则结合的方式。被当做缓存使用。
+</code></pre>
+
+
+
+<h3 id="7使用java操控redis">7、使用java操控redis</h3>
+
+<pre><code>使用java操控redis数据库需要加载jedis.jar包。
+</code></pre>
+
+<p>步骤如下： <br>
+<strong>1、开启redis服务器</strong> <br>
+<strong>2、利用jedis连接池连接服务器</strong> <br>
+<strong>3、使用jedis连接池获取jedis对象</strong> <br>
+<strong>4、通过jedis对象获取tx事务对象</strong> <br>
+<strong>5、通过事务对象tx操控数据库</strong> <br>
+<strong>6、事务提交或回滚</strong> <br>
+<strong>7、关闭连接</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">//Maven相关配置
+<span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/redis.clients/jedis --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>redis.clients<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jedis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.9.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//实现代码如下</span>
+
+ <span class="hljs-comment">//配置参数</span>
+        String redisAddress = <span class="hljs-string">"127.0.0.1"</span>;
+        <span class="hljs-keyword">int</span> redisPort = <span class="hljs-number">6379</span>;
+        <span class="hljs-keyword">int</span> redisTimeout = <span class="hljs-number">2000</span>;
+        <span class="hljs-comment">//配置连接池，连接对象，其中jedisPoolConfig对象可以操控连接的空闲时间、连接个数等等，这里采用默认方式</span>
+        JedisPool pool = <span class="hljs-keyword">new</span> JedisPool(<span class="hljs-keyword">new</span> JedisPoolConfig(), redisAddress, redisPort, redisTimeout);
+
+        Jedis jedis = <span class="hljs-keyword">null</span>;
+        Transaction tx = <span class="hljs-keyword">null</span>;<span class="hljs-comment">//事务</span>
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">//使用连接池获取jedis对象</span>
+            jedis = pool.getResource();
+            <span class="hljs-comment">//开启连接池事务</span>
+            tx = jedis.multi();
+            <span class="hljs-comment">//使用事务对象操控redis服务器库</span>
+
+            <span class="hljs-comment">//。。。。。。省略业务操作。。。。。。。。</span>
+            <span class="hljs-comment">//。。。。。。省略业务操作。。。。。。。。</span>
+            <span class="hljs-comment">//。。。。。。省略业务操作。。。。。。。。</span>
+
+            <span class="hljs-comment">//事务提交</span>
+            tx.exec();
+        }<span class="hljs-keyword">catch</span> (Exception e)
+        {   
+            <span class="hljs-comment">//如果异常信息，事务回滚</span>
+            tx.discard();
+            e.printStackTrace();
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">if</span> (jedis != <span class="hljs-keyword">null</span>)
+                jedis.close();
+            <span class="hljs-keyword">if</span> (pool != <span class="hljs-keyword">null</span>)
+                pool.close();
+        }</code></pre></div>

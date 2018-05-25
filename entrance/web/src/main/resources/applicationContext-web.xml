@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd">
+
+    <!-- 自动扫描、并注入对象 -->
+    <context:property-placeholder location="classpath:config/dev.properties" />
+    <context:annotation-config />
+    <context:component-scan base-package="controller,service,interceptor,config"/>
+    <!-- 结束 自动扫描、并注入对象 -->
+
+
+    <!--<bean id="jobConfiguration" class="config.JobConfiguration"></bean>-->
+
+    <!-- 事务 -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+    <bean id="transactionManager"  class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!-- 结束 事务 -->
+
+    <!-- SpringMVC 完成 -->
+    <!-- SpringMVC 自动添加控制器层返还String类型的前缀和后缀-->
+    <!--<mvc:annotation-driven/>-->
+    <!--<bean id="internalResourceViewResolver"-->
+          <!--class="org.springframework.web.servlet.view.InternalResourceViewResolver">-->
+        <!--<property name="prefix" value="/"/>-->
+        <!--<property name="suffix" value=".html"/>-->
+    <!--</bean>-->
+    <!--&lt;!&ndash; 结束 SpringMVC 自动添加控制器层返还String类型的前缀和后缀&ndash;&gt;-->
+    <!--<mvc:resources location="/" mapping="/**/*.html"/>-->
+    <!--&lt;!&ndash; 配置拦截器 &ndash;&gt;-->
+    <mvc:interceptors>
+        <mvc:interceptor>
+            <mvc:mapping path="/**" />
+            <!-- 需排除拦截的地址 -->
+            <!--这里的action，和拦截器类都是将要创建的，一开始会报错。创建一个登录拦截器就好。path里面指的映射控制器的地址-->
+            <!--<mvc:exclude-mapping path="/login.action"/>-->
+            <bean id="loadInterceptor" class="interceptor.LoadInterceptor" />
+        </mvc:interceptor>
+    </mvc:interceptors>
+    <!-- 结束 配置拦截器 -->
+    <!-- 结束 SpringMVC -->
+
+    <!-- 多部分文件上传 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="maxUploadSize" value="104857600" />
+        <property name="maxInMemorySize" value="4096" />
+        <property name="defaultEncoding" value="UTF-8"/>
+    </bean>
+    <!-- 结束 多部分文件上传 -->
+
+    <!-- 配置json数据 -->
+    <!--<bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">-->
+        <!--<property name="messageConverters">-->
+            <!--<list>-->
+                <!--<ref bean="mappingJackson2HttpMessageConverter"/>-->
+            <!--</list>-->
+        <!--</property>-->
+    <!--</bean>-->
+    <!--<bean id="mappingJackson2HttpMessageConverter"-->
+          <!--class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">-->
+        <!--<property name="supportedMediaTypes">-->
+            <!--<list>-->
+                <!--<value>text/html;charset=UTF-8</value>-->
+                <!--<value>text/json;charset=UTF-8</value>-->
+                <!--<value>application/json;charset=UTF-8</value>-->
+            <!--</list>-->
+        <!--</property>-->
+    <!--</bean>-->
+    <!-- 结束 配置json数据 -->
+
+</beans>

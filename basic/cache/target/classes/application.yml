@@ -1,0 +1,10 @@
+spring:
+  datasource:
+     url: jdbc:mysql://47.94.107.115/sale
+     username: root
+     password: cdkj5@marker
+     driver-class-name: com.mysql.jdbc.Driver
+  jpa:
+    show-sql: true
+#    hibernate:
+#      ddl-auto: none

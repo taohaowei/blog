@@ -1,0 +1,77 @@
+<div class="container"><p><strong>1. const作用是什么？</strong> <br>
+    const关键字（翻译为：常数，不变的;）被它定义的变量为<strong>常量（不可再赋值的变量为常量）</strong> <br>
+    下面我们来看一段简单的代码，</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> main(<span class="hljs-keyword">void</span>){
+    <span class="hljs-keyword">int</span> <span class="hljs-keyword">const</span> a = <span class="hljs-number">10</span>;<span class="hljs-comment">//定义一个常量a=10;</span>
+    <span class="hljs-comment">//上述等于  const int a = 10;下文中用第一种表示方法，比较直观。</span>
+    a++;<span class="hljs-comment">//编译时报错，因为const形容了a这个变量，它不可再变化</span>
+}</code></pre>
+
+<p>运行结果报错：[Error] increment of <strong>read-only</strong> variable ‘a’ <br>
+可以看到，被const形容过的变量a为只读（read-only）。</p>
+
+<p><strong>2.const形容指针两种表示形式。</strong></p>
+
+<pre><code>在描述指针的形式前，先来引领一下思路，便于后面理解。
+`int a = 10;` 表示a变量被int修饰,也就是整形变量a
+按照上面的思路，下面这段代码
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs autohotkey">int const <span class="hljs-literal">a</span> = <span class="hljs-number">10</span><span class="hljs-comment">;</span>
+<span class="hljs-escape">``</span><span class="hljs-escape">`是</span>不是就代表着，<span class="hljs-literal">a</span>变量被const修饰成常量(read-only)，同时！也被int修饰，所以<span class="hljs-literal">a</span>变量也就是整形常量
+
+**按照上面的思路，来研究一下下面的代码，哪一句编译时会报错？？**
+
+
+
+
+&lt;div class=<span class="hljs-string">"se-preview-section-delimiter"</span>&gt;&lt;/div&gt;
+</code></pre>
+
+<p>int main(void) <br>
+{ <br>
+    int x = 10; <br>
+    int const *a = &amp;x;          //第一行 <br>
+    int *const b = &amp;x;          //第二行 <br>
+    printf(“a = %d\n”, ++*a );  //第三行 <br>
+    printf(“a = %d\n”, *++a );  //第四行 <br>
+    printf(“a = %d\n”, *(a+1) );//第五行 <br>
+    printf(“a = %d\n”, (*a+1) );//第六行 <br>
+    printf(“b = %d\n”, ++*b );  //第七行 <br>
+    printf(“b = %d\n”, *++b );  //第八行 <br>
+    printf(“b = %d\n”, *(b+1) );//第九行 <br>
+    printf(“b = %d\n”, (*b+1) );//第十行 <br>
+}</p>
+
+<pre class="prettyprint"><code class=" hljs applescript">结果如下：
+
+
+
+
+
+&lt;<span class="hljs-keyword">div</span> <span class="hljs-type">class</span>=<span class="hljs-string">"se-preview-section-delimiter"</span>&gt;&lt;/<span class="hljs-keyword">div</span>&gt;
+</code></pre>
+
+<p>int main(void) <br>
+{ <br>
+    int x = 10; <br>
+    int const *a = &amp;x;          //第一行 <br>
+    int *const b = &amp;x;          //第二行 <br>
+    printf(“a = %d\n”, ++*a );  //第三行—编译错误 <br>
+    printf(“a = %d\n”, *++a );  //第四行—若x变量为数组的话，指向索引为1的值(x[1])。否则为随机内存地址 <br>
+    printf(“a = %d\n”, *(a+1) );//第五行—若x变量为数组的话，指向索引为2的值(x[2])。否则为随机内存地址 <br>
+    printf(“a = %d\n”, (*a+1) );//第六行—11，*a的值为10   然后10+1=11 <br>
+    printf(“b = %d\n”, ++*b );  //第七行—11，同上 <br>
+    printf(“b = %d\n”, *++b );  //第八行—编译错误 <br>
+    printf(“b = %d\n”, *(b+1) );//第九行—同第五行 <br>
+    printf(“b = %d\n”, (*b+1) );//第十行—12 <br>
+} <br>
+“` <br>
+上述结果表明： <br>
+    int const *a;    此时*a这个整体为常量； <br>
+    int *const b;    此时b变量（地址）为变量；</p></div>

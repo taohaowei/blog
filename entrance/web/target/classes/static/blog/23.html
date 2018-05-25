@@ -1,0 +1,673 @@
+<div class="container"><h2 id="zdal分库分表超详细一步一步实现使用zdal搭建框架">Zdal分库分表、超详细一步一步实现使用zdal搭建框架</h2>
+
+<p><a href="http://blog.csdn.net/q6834850">转载请标明出处，谢谢~！^^，有问题一起讨论      _______by-陶浩伟</a></p>
+
+<blockquote>
+  <p>背景：</p>
+  
+  <p><strong>我在的开发小组比较空闲，在看完业务逻辑后，暂时没什么任务的我研究起了小组项目的搭建。</strong></p>
+  
+  <p>小组项目是一个分布式项目，逻辑比较简单，但是用到的技术比较全面。分别用到    <strong>dubbo分布式服务框架</strong>、<strong>MQ消息队列</strong>、<strong>redis</strong>、<strong>Zdal分库分表</strong>、Mybatis、spring等</p>
+  
+  <p>技术在业务逻辑上的体现大致为：<img src="http://img.blog.csdn.net/20170720170856669?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+</blockquote>
+
+<hr>
+
+<hr>
+
+
+
+<h2 id="正文">正文</h2>
+
+<p><strong>1、什么是zdal？ 它能解决什么问题？</strong> <br>
+<strong>2、zdal的组成</strong> <br>
+<strong>3、搭建的项目展示</strong> <br>
+<strong>4、zdal搭建所需环境</strong> <br>
+<strong>5、zdal配置文件的配置</strong> <br>
+<strong>6、编写测试类，测试项目搭建</strong> <br>
+<strong>7、异常处理建议</strong></p>
+
+
+
+<h3 id="1什么是zdal-它能解决什么问题">1、什么是zdal？ 它能解决什么问题？</h3>
+
+<p>注：本文参照了些<a href="http://rdc.hundsun.com/portal/article/763.html">该文（同后）</a>的内容，加上自己的理解，侧重实际搭建，内容有表述不清楚的地方，请参照<a href="http://rdc.hundsun.com/portal/article/763.html">文档理解–作者：黄磊</a>，若有错误知错，请大家指出^^。</p>
+
+<blockquote>
+  <p><strong>1.1 什么是zdal?</strong>  </p>
+  
+  <p>&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Zdal是支付宝自主研发的数据中间件产品，采用标准的JDBC规范，可以在分布式环境下看上去像传统数据库一样提供海量数据服务，是一种通用的分库分表数据库访问框架。</p>
+  
+  <p><strong>1.2 它能解决什么问题？</strong>     </p>
+  
+  <p>&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;它能在数据访问压力过大时，解决单库单表数据库访问压力，Zdal主要提供分库分表，分散压力，结果集合并，sql解析，数据库failover动态切换等功能，提供互联网金融行业的数据访问层统一解决方案，</p>
+  
+  <p><strong>1.3 实际运用</strong> </p>
+  
+  <p>&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;目前已经在支付宝的交易，支付，会员，金融等大部分关键应用上使用，并且在2013年双11大促中运行稳定。</p>
+</blockquote>
+
+
+
+<h3 id="2zdal的组成zdal是怎么实现的">2、zdal的组成、zdal是怎么实现的？</h3>
+
+<p><strong>2.1 zdal组件主要有5部分组成：</strong></p>
+
+<blockquote>
+  <ol>
+  <li><strong>Zdal-client</strong>：开发编程接口，实现jdbc的Datasource，Connection，Statement，PreparedStatement，ResultSet等接口，实现通用的jdbc-sql访问，内部还实现读库重试，group数据源的选择器，表名替换，sql执行器等功能。</li>
+  <li><strong>Zdal-parser</strong>：支持oracle/mysql/db2等数据库的sql语句解析，并且缓存。根据规则引擎提供的参数列表，在指定的sql中查找到需要的参数，然后返回拆分字段。</li>
+  <li><strong>Zdal-rule</strong>：根据zdal-parser解析后的拆分字段值来确定逻辑库和物理表名。</li>
+  <li><strong>Zdal-datasource</strong>：数据库连接的管理，支持mysql，oracle，db2数据库的连接管理。</li>
+  <li><strong>Zdal-common</strong>：zdal组件所使用的一些公共组件类</li>
+  </ol>
+</blockquote>
+
+<p><strong>2.3 zdal是怎么实现的呢？</strong></p>
+
+<blockquote>
+  <p>a、不同于以往的jdbc连接，zdal实现同时与多个数据源绑定 <br>
+  b、根据规则引擎生成的目标库id和表名，根据其中的某个字段计算该数据属于的物理数据库 <br>
+  c、然后动态指定读库，对该库进行操作</p>
+</blockquote>
+
+
+
+<h3 id="3搭建的项目展示">3、搭建的项目展示</h3>
+
+<p><strong>3.1 项目介绍</strong></p>
+
+<blockquote>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;项目一共使用两个数据库服务器，分别是本机和远程的数据库服务器，共分了4个数据库DB，平均分布共12张城市信息表，每个数据库中3张城市信息表，城市信息表中只有两个字段，分别是id和cityName.</p>
+  
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;数据库DB命名规则为test_XX（索引），城市信息表命名规则为t_city_XX（索引）</p>
+</blockquote>
+
+<p><strong>3.2 数据库目录结构、以及表展示</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">//表的创建sql语句
+<span class="hljs-operator"><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">TABLE</span> test_00.t_city_00 (
+  <span class="hljs-string">`id`</span> <span class="hljs-keyword">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">NOT</span> <span class="hljs-keyword">NULL</span> AUTO_INCREMENT COMMENT <span class="hljs-string">'自增ID'</span>,
+  <span class="hljs-string">`cityName`</span> <span class="hljs-keyword">varchar</span>(<span class="hljs-number">32</span>) <span class="hljs-keyword">NOT</span> <span class="hljs-keyword">NULL</span> COMMENT <span class="hljs-string">'城市名'</span>,
+  <span class="hljs-keyword">PRIMARY</span> <span class="hljs-keyword">KEY</span> (<span class="hljs-string">`id`</span>)
+) ENGINE=InnoDB <span class="hljs-keyword">DEFAULT</span> CHARSET=utf8;</span>`</code></pre>
+
+<blockquote>
+  <p><img src="http://img.blog.csdn.net/20170720183922726?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="数据库目录结构" title=""></p>
+</blockquote>
+
+<p><strong>3.3 项目目录结构展示</strong></p>
+
+<blockquote>
+  <p><img src="http://img.blog.csdn.net/20170720184047826?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+</blockquote>
+
+
+
+<h3 id="4zdal搭建所需环境">4、zdal搭建所需环境</h3>
+
+<blockquote>
+  <p>1、zdal需要本身自己的jar包，可以<a href="http://pan.baidu.com/s/1skUw5E9">点击下载，百度云密码：9e9x</a>。 <br>
+  2、需要spring相关jar包 <br>
+  3、需要jdbc-driver-mysql的jar包 <br>
+  4、项目中使用了mybatis、所以还需要mybatis相关jar包。 <br>
+  5、如有需要可引入log相关jar包 <br>
+  使用时可以下载zdal包后，解压到maven的仓库中，然后如下配置</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0"</span>
+         <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+         <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">modelVersion</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>test1<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>zdal_test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">project_version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">project_version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">spring_version</span>&gt;</span>3.2.9.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring_version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">junit_version</span>&gt;</span>4.10<span class="hljs-tag">&lt;/<span class="hljs-title">junit_version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mybatis-spring_version</span>&gt;</span>1.2.0<span class="hljs-tag">&lt;/<span class="hljs-title">mybatis-spring_version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">zdal.version</span>&gt;</span>1.0<span class="hljs-tag">&lt;/<span class="hljs-title">zdal.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--zdal相关--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.alipay.zdal<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>zdal-client<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${zdal.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">exclusions</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">exclusion</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">exclusion</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">exclusions</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--junit测试jar包 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${junit_version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!-- Mybaits相关 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.3.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mybatis-spring<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mybatis-spring_version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!-- Mysql连接相关 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>mysql<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mysql-connector-java<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>5.1.36<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!-- Spring相关 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring_version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-beans<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring_version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring_version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-jdbc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring_version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span></code></pre>
+
+
+
+<h3 id="5zdal配置文件的配置">5、zdal配置文件的配置</h3>
+
+<p><strong>5.1 完成zdal-rule类</strong></p>
+
+<blockquote>
+  <p>zdal-rule主要是完成规则的计算，包括分库的计算和分表的计算，相当于是一个二次路由的过程，这里使用在代码里封装拆分规则静态方法，在规则里调用该静态方法。</p>
+  
+  <p>通俗的说，就是为了zdal判断，这条数据是存在<strong><em>哪个数据库服务器</em></strong>，<strong><em>哪个数据库</em></strong>的<strong><em>哪个数据表</em></strong> <br>
+  这里我写的计算过程很简单，就是根据城市id来计算的，代码如下：</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.util;
+
+<span class="hljs-javadoc">/**
+ * Created by Administrator on 2017/7/20.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ZdalRuleParser</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 解析得到分库的数据库
+     *<span class="hljs-javadoctag"> @param</span> id
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> <span class="hljs-title">parserDbIndex</span>(<span class="hljs-keyword">int</span> id) {
+    <span class="hljs-comment">//因为一共四个库，直接对4取余即可取到所有的数据库（0,1,2,3）</span>
+        <span class="hljs-keyword">return</span> id%<span class="hljs-number">4</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 解析得到分表的表结构
+     *<span class="hljs-javadoctag"> @param</span> id
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> <span class="hljs-title">parserTbIndex</span>(<span class="hljs-keyword">int</span> id) {
+
+        <span class="hljs-keyword">int</span> index = parserDbIndex(id);
+        <span class="hljs-comment">//{(0-0,1,2),(1-3,4,5),(2-6,7,8)}-索引为0的数据库对应0,1,2三张表、索引为1的数据库对应3,4,5三张表</span>
+        <span class="hljs-comment">//这里根据数据库索引，乘3+id对3取余，即可对得到对应的表</span>
+        <span class="hljs-comment">//例如，id为3时，数据库索引为3，表索引为9.则这条数据插入在test_03中的t_city_09中</span>
+        <span class="hljs-keyword">int</span> tbIndex = index*<span class="hljs-number">3</span>+id%<span class="hljs-number">3</span>;
+        <span class="hljs-keyword">return</span> tbIndex;
+    }
+
+}
+</code></pre>
+
+<p><strong>5.2 完成zdal-rule配置文件</strong></p>
+
+<blockquote>
+  <p>这里的配置规则可以参考1中的<a href="http://rdc.hundsun.com/portal/article/763.html">文档理解</a>，里面对每条property属性含义有比较全面的解释。 <br>
+  —图片转自文档理解— <br>
+  <img src="http://img.blog.csdn.net/20170720204318704?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="图片转自文档理解" title=""> <br>
+  —图片转自文档理解— <br>
+  这个配置文件对应 <strong>3.3 项目目录结构展示</strong> 中的/resource/config/zdal-dev-rule.xml文件,主要实现内容是关联上述5.1中的配置类，分别对应数据库、表的计算，代码如下</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"testRule"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alipay.zdal.rule.config.beans.AppRule"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"masterRule"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"testRWRule"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--&lt;property name="readwriteRule" ref="testRWRule"/&gt;--&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"testRWRule"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alipay.zdal.rule.config.beans.ShardRule"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"tableRules"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">map</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">entry</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"t_city"</span> <span class="hljs-attribute">value-ref</span>=<span class="hljs-value">"userTableRule"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">map</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userTableRule"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alipay.zdal.rule.config.beans.TableRule"</span> <span class="hljs-attribute">init-method</span>=<span class="hljs-value">"init"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"tbSuffix"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"resetForEachDB:[_00-_11]"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dbIndexes"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"master_00,master_01,master_02,master_03"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 分库解析方法 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dbRuleArray"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>
+                    return com.util.ZdalRuleParser.parserDbIndex(#id#);
+                <span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 分表解析方法 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"tbRuleArray"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>
+                    return com.util.ZdalRuleParser.parserTbIndex(#id#);
+                <span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<p><strong>5.3 完成zdal-ds数据源配置文件</strong></p>
+
+<blockquote>
+  <p>这里的配置规则可以参考1中的<a href="http://rdc.hundsun.com/portal/article/763.html">文档理解</a>，里面对每条property属性含义有比较全面的解释。 <br>
+  —图片转自文档理解— <br>
+  <img src="http://img.blog.csdn.net/20170721090601433?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""> <br>
+  —图片转自文档理解—</p>
+  
+  <p>这个配置文件对应 3.3 项目目录结构展示 中的/resource/config/zdal-dev-<strong>ds</strong>.xml文件,主要实现是关联zdal-dev-<strong>rule</strong>.xml文件。将数据库源连接，这里需要注意的几点有：</p>
+  
+  <p>a、两个<strong>配置文件的名称</strong>，需要与ZdalAppBean中的appName、dbmode相关联，<strong>格式为 appName-dbmode-ds/rule.xml</strong> 如果名称不按格式来，zdal初始化时会加载不成功。</p>
+  
+  <p>b、<strong>配置数据源</strong>时（也就是PhysicalDataSourceBean），多个数据库服务器需要配置多个对应数据库连接源，然后在（AppDataSourceBean）中绑定，形成一对多的数据库结构。具体参考如下代码：</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;?xml <span class="hljs-property">version</span>=<span class="hljs-string">"1.0"</span> encoding=<span class="hljs-string">"UTF-8"</span>?&gt;
+&lt;beans xmlns=<span class="hljs-string">"http://www.springframework.org/schema/beans"</span>
+       xmlns:xsi=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       xsi:schemaLocation=<span class="hljs-string">"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"</span>&gt;
+    &lt;!<span class="hljs-comment">-- zdal数据源配置 --&gt;</span>
+    &lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"zdal"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.alipay.zdal.client.config.bean.ZdalAppBean"</span>&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"appName"</span> value=<span class="hljs-string">"zdal"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"dbmode"</span> value=<span class="hljs-string">"dev"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"appDataSourceList"</span>&gt;
+            &lt;<span class="hljs-type">list</span>&gt;
+                &lt;<span class="hljs-keyword">ref</span> bean=<span class="hljs-string">"ShardDataSource"</span>/&gt;
+            &lt;/<span class="hljs-type">list</span>&gt;
+        &lt;/<span class="hljs-keyword">property</span>&gt;
+    &lt;/bean&gt;
+    &lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"ShardDataSource"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.alipay.zdal.client.config.bean.AppDataSourceBean"</span>&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"appDataSourceName"</span> value=<span class="hljs-string">"ShardDataSource"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"dataBaseType"</span> value=<span class="hljs-string">"MYSQL"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"configType"</span> value=<span class="hljs-string">"Shard"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"appRule"</span> <span class="hljs-keyword">ref</span>=<span class="hljs-string">"testRule"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"physicalDataSourceSet"</span>&gt;
+            &lt;<span class="hljs-keyword">set</span>&gt;
+                &lt;<span class="hljs-keyword">ref</span> bean=<span class="hljs-string">"testDB_00"</span>/&gt;
+                &lt;<span class="hljs-keyword">ref</span> bean=<span class="hljs-string">"testDB_01"</span>/&gt;
+                &lt;<span class="hljs-keyword">ref</span> bean=<span class="hljs-string">"testDB_02"</span>/&gt;
+                &lt;<span class="hljs-keyword">ref</span> bean=<span class="hljs-string">"testDB_03"</span>/&gt;
+            &lt;/<span class="hljs-keyword">set</span>&gt;
+        &lt;/<span class="hljs-keyword">property</span>&gt;
+    &lt;/bean&gt;
+
+    &lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"testDB_00"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.alipay.zdal.client.config.bean.PhysicalDataSourceBean"</span>&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"name"</span> value=<span class="hljs-string">"master_00"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"jdbcUrl"</span> value=<span class="hljs-string">"jdbc:mysql://127.0.0.1:3306/test_00?autoReconnect=true&amp;amp;useUnicode=true&amp;amp;characterEncoding=utf8"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"userName"</span> value=<span class="hljs-string">"root"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"password"</span> value=<span class="hljs-string">"0203"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"minConn"</span> value=<span class="hljs-string">"1"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"maxConn"</span> value=<span class="hljs-string">"10"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"blockingTimeoutMillis"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"idleTimeoutMinutes"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"preparedStatementCacheSize"</span> value=<span class="hljs-string">"100"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"queryTimeout"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"prefill"</span> value=<span class="hljs-string">"true"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"connectionProperties"</span>&gt;
+            &lt;map&gt;
+                &lt;entry key=<span class="hljs-string">"connectTimeout"</span> value=<span class="hljs-string">"500"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"autoReconnect"</span> value=<span class="hljs-string">"true"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"initialTimeout"</span> value=<span class="hljs-string">"1"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"maxReconnects"</span> value=<span class="hljs-string">"2"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"socketTimeout"</span> value=<span class="hljs-string">"5000"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"failOverReadOnly"</span> value=<span class="hljs-string">"false"</span>/&gt;
+            &lt;/map&gt;
+        &lt;/<span class="hljs-keyword">property</span>&gt;
+    &lt;/bean&gt;
+
+    &lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"testDB_01"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.alipay.zdal.client.config.bean.PhysicalDataSourceBean"</span>&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"name"</span> value=<span class="hljs-string">"master_01"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"jdbcUrl"</span> value=<span class="hljs-string">"jdbc:mysql://127.0.0.1:3306/test_01?autoReconnect=true&amp;amp;useUnicode=true&amp;amp;characterEncoding=utf8"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"userName"</span> value=<span class="hljs-string">"root"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"password"</span> value=<span class="hljs-string">"0203"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"minConn"</span> value=<span class="hljs-string">"1"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"maxConn"</span> value=<span class="hljs-string">"10"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"blockingTimeoutMillis"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"idleTimeoutMinutes"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"preparedStatementCacheSize"</span> value=<span class="hljs-string">"100"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"queryTimeout"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"prefill"</span> value=<span class="hljs-string">"true"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"connectionProperties"</span>&gt;
+            &lt;map&gt;
+                &lt;entry key=<span class="hljs-string">"connectTimeout"</span> value=<span class="hljs-string">"500"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"autoReconnect"</span> value=<span class="hljs-string">"true"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"initialTimeout"</span> value=<span class="hljs-string">"1"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"maxReconnects"</span> value=<span class="hljs-string">"2"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"socketTimeout"</span> value=<span class="hljs-string">"5000"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"failOverReadOnly"</span> value=<span class="hljs-string">"false"</span>/&gt;
+            &lt;/map&gt;
+        &lt;/<span class="hljs-keyword">property</span>&gt;
+    &lt;/bean&gt;
+    &lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"testDB_02"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.alipay.zdal.client.config.bean.PhysicalDataSourceBean"</span>&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"name"</span> value=<span class="hljs-string">"master_02"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"jdbcUrl"</span> value=<span class="hljs-string">"jdbc:mysql://47.94.107.115:3306/test_02?autoReconnect=true&amp;amp;useUnicode=true&amp;amp;characterEncoding=utf8"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"userName"</span> value=<span class="hljs-string">"root"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"password"</span> value=<span class="hljs-string">"这里填服务器密码"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"minConn"</span> value=<span class="hljs-string">"1"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"maxConn"</span> value=<span class="hljs-string">"10"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"blockingTimeoutMillis"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"idleTimeoutMinutes"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"preparedStatementCacheSize"</span> value=<span class="hljs-string">"100"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"queryTimeout"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"prefill"</span> value=<span class="hljs-string">"true"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"connectionProperties"</span>&gt;
+            &lt;map&gt;
+                &lt;entry key=<span class="hljs-string">"connectTimeout"</span> value=<span class="hljs-string">"500"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"autoReconnect"</span> value=<span class="hljs-string">"true"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"initialTimeout"</span> value=<span class="hljs-string">"1"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"maxReconnects"</span> value=<span class="hljs-string">"2"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"socketTimeout"</span> value=<span class="hljs-string">"5000"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"failOverReadOnly"</span> value=<span class="hljs-string">"false"</span>/&gt;
+            &lt;/map&gt;
+        &lt;/<span class="hljs-keyword">property</span>&gt;
+    &lt;/bean&gt;
+    &lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"testDB_03"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.alipay.zdal.client.config.bean.PhysicalDataSourceBean"</span>&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"name"</span> value=<span class="hljs-string">"master_03"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"jdbcUrl"</span> value=<span class="hljs-string">"jdbc:mysql://47.94.107.115:3306/test_03?autoReconnect=true&amp;amp;useUnicode=true&amp;amp;characterEncoding=utf8"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"userName"</span> value=<span class="hljs-string">"root"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"password"</span> value=<span class="hljs-string">"这里填服务器密码"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"minConn"</span> value=<span class="hljs-string">"1"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"maxConn"</span> value=<span class="hljs-string">"10"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"blockingTimeoutMillis"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"idleTimeoutMinutes"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"preparedStatementCacheSize"</span> value=<span class="hljs-string">"100"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"queryTimeout"</span> value=<span class="hljs-string">"180"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"prefill"</span> value=<span class="hljs-string">"true"</span>/&gt;
+        &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"connectionProperties"</span>&gt;
+            &lt;map&gt;
+                &lt;entry key=<span class="hljs-string">"connectTimeout"</span> value=<span class="hljs-string">"500"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"autoReconnect"</span> value=<span class="hljs-string">"true"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"initialTimeout"</span> value=<span class="hljs-string">"1"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"maxReconnects"</span> value=<span class="hljs-string">"2"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"socketTimeout"</span> value=<span class="hljs-string">"5000"</span>/&gt;
+                &lt;entry key=<span class="hljs-string">"failOverReadOnly"</span> value=<span class="hljs-string">"false"</span>/&gt;
+            &lt;/map&gt;
+        &lt;/<span class="hljs-keyword">property</span>&gt;
+    &lt;/bean&gt;
+&lt;/beans&gt;</code></pre>
+
+<p><strong>5.4 完成城市相关逻辑，以及mapper配置文件</strong></p>
+
+<blockquote>
+  <p>接下来就很简单，城市相关逻辑很简单，逻辑只实现包含一条向数据库中插入一条城市信息。{（id，1），（cityName，北京）}，直接看代码就可以好。如下：</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//biz包--即CityService，具体所处位置可参考3.3项目目录结构图</span>
+
+@Service
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> CityService {
+
+    @Autowired
+    <span class="hljs-keyword">private</span> CityMapper cityMapper;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">insert</span>(City city)
+    {
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"开始插入"</span>);
+        <span class="hljs-keyword">int</span> i = cityMapper.insertCity(city);
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"插入结果为："</span>+i);
+    }
+}
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">//mapper包--即CityMapper接口，接口位置请参考3.3项目结构目录
+
+public interface CityMapper {
+    public int insertCity(City city);
+}
+
+//对应/resources/mapper/cityMapper.xml配置文件
+
+<span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" &gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"com.mapper.CityMapper"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">insert</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"insertCity"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"com.model.City"</span>&gt;</span>
+        INSERT INTO t_city (id,cityName) VALUES (#{id},#{cityName})
+    <span class="hljs-tag">&lt;/<span class="hljs-title">insert</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span>
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//model包--City模型</span>
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> City {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String cityName;
+
+    <span class="hljs-comment">//........省略构造方法........</span>
+
+    <span class="hljs-comment">//........省略getter和setter........</span>
+
+    }</code></pre>
+
+<p><strong>5.5 完成spring配置文件</strong></p>
+
+<blockquote>
+  <p>spring配置文件也很简单，只需要配置zdal分库分表的数据源，将mybatis数据源与其绑定即可。 <br>
+  注意：这里的dbmode、appname和appDsName与zdal-dev-ds中的相对应 <br>
+  代码实现如下：</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="GBK"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xmlns:mybatis</span>=<span class="hljs-value">"http://mybatis.org/schema/mybatis-spring"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context.xsd
+                        http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring.xsd"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--  --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:annotation-config</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.biz"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 分库分表数据源--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alipay.zdal.client.jdbc.ZdalDataSource"</span> <span class="hljs-attribute">init-method</span>=<span class="hljs-value">"init"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"appName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"zdal"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"appDsName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"ShardDataSource"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dbmode"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dev"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"configPath"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"./config"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--&lt;property name="configPath" value="classpath*:mapper/*.xml"/&gt;--&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- mybatis相关配置，绑定数据源 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mybatis:scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.mapper"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionFactoryBean"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"typeAliasesPackage"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.model"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mapperLocations"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"classpath*:mapper/*.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+
+
+<h3 id="6编写测试类测试项目搭建">6、编写测试类，测试项目搭建</h3>
+
+<blockquote>
+  <p>至此，配置相关的内容结束、实际操作也很方便，重点在<strong>zdal对我们熟悉的dao层编程几乎没有任何入侵</strong>，只需要在对数据库操作前，查询库的路由规则（咱们在ZdalRuleParser类中自己写的那个实现类），得到实际操作的数据。</p>
+  
+  <p>内容步骤如下：</p>
+  
+  <p>1、初始化spring容器，得到数据库对应的数据源</p>
+  
+  <p>2、从数据源中得到 逻辑物理数据源名称（logicPhysicsDsNames），用于初始化logicPhysicsIndexes数据源集合</p>
+  
+  <p>3、开始执行插入操作，通过在<strong>ZdalRuleParser类</strong>写的映射规则，使用递增id计算得到这条数据分库分表的索引。（例如id=3，分库对应test_03，分表对应t_city_09）</p>
+  
+  <p>4、将计算得到的分表组成<strong>数据库表示路由条件</strong>，然后将这个对象添加到线程中。（这两步想当于告诉接下来数据库插入的操作，你要往分库对应test_03，分表对应t_city_09这个数据源中插入数据，别插错了。） <br>
+  5、执行插入操作</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.alipay.zdal.client.ThreadLocalString;
+<span class="hljs-keyword">import</span> com.alipay.zdal.client.jdbc.ZdalDataSource;
+<span class="hljs-keyword">import</span> com.alipay.zdal.client.util.ThreadLocalMap;
+<span class="hljs-keyword">import</span> com.alipay.zdal.client.util.condition.DBSelectorIDRouteCondition;
+<span class="hljs-keyword">import</span> com.biz.CityService;
+<span class="hljs-keyword">import</span> com.model.City;
+<span class="hljs-keyword">import</span> com.util.ZdalRuleParser;
+<span class="hljs-keyword">import</span> org.junit.Before;
+<span class="hljs-keyword">import</span> org.junit.Test;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.context.support.ClassPathXmlApplicationContext;
+
+<span class="hljs-keyword">import</span> java.text.DecimalFormat;
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-javadoc">/**
+ * Created by Administrator on 2017/7/20.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyTest</span> {</span>
+    <span class="hljs-keyword">private</span> CityService service;
+    <span class="hljs-keyword">private</span> ZdalDataSource dataSource;
+    <span class="hljs-comment">// 所有配置的物理数据源, dbIndex</span>
+    <span class="hljs-keyword">private</span> Map&lt;Integer, String&gt; logicPhysicsIndexes;
+
+    <span class="hljs-comment">//库名</span>
+    <span class="hljs-keyword">private</span> String dbName = <span class="hljs-string">"test"</span>;
+    <span class="hljs-comment">//表名</span>
+    <span class="hljs-keyword">private</span> String tbName = <span class="hljs-string">"t_city"</span>;
+    <span class="hljs-annotation">@Before</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>()
+    {
+        <span class="hljs-comment">//加载spring容器，实例化bean</span>
+        ClassPathXmlApplicationContext context = <span class="hljs-keyword">new</span> ClassPathXmlApplicationContext(<span class="hljs-string">"application-context.xml"</span>);
+        service = (CityService) context.getBean(<span class="hljs-string">"cityService"</span>);
+        dataSource = (ZdalDataSource) context.getBean(<span class="hljs-string">"dataSource"</span>);
+
+        <span class="hljs-comment">//实例化逻辑数据源</span>
+        logicPhysicsIndexes = <span class="hljs-keyword">new</span> HashMap&lt;Integer, String&gt;();
+        <span class="hljs-comment">//得到物理数据源名称</span>
+        Map&lt;String, String&gt; logicPhysicsDsNames = dataSource.getZdalConfig().getLogicPhysicsDsNames();
+        <span class="hljs-comment">//将其存入物理数据源数据  {(0,master_00),(1,master_01)...}</span>
+        <span class="hljs-keyword">for</span> (String name : logicPhysicsDsNames.keySet()) {
+            String[] split = name.split(<span class="hljs-string">"_"</span>);
+            logicPhysicsIndexes.put(Integer.valueOf(split[<span class="hljs-number">1</span>]), name);
+        }
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-javadoc">/**
+     * 插入数据库操作
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">insert</span>(){
+
+        <span class="hljs-comment">//设置插入10条id数据，id自增</span>
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> id=<span class="hljs-number">30</span>;id&lt;<span class="hljs-number">40</span>;id++) {
+
+            <span class="hljs-comment">// 指定查詢库的路由規則</span>
+            <span class="hljs-comment">//根据规则得到分库索引</span>
+            <span class="hljs-keyword">int</span> dbIndex = ZdalRuleParser.parserDbIndex(id);
+            String dbSelectorID = logicPhysicsIndexes.get(dbIndex);
+            System.out.println(<span class="hljs-string">"dbSelectorID = "</span> + dbSelectorID);
+            <span class="hljs-comment">//根据规则得到分表索引</span>
+            <span class="hljs-keyword">int</span> tbIndex = ZdalRuleParser.parserTbIndex(id);
+            String tablePostfix = <span class="hljs-keyword">new</span> DecimalFormat(<span class="hljs-string">"_00"</span>).format(tbIndex);<span class="hljs-comment">//如果tbIndex为3，tablePostfix为_03</span>
+            <span class="hljs-comment">//根据分表索引得到物理表名称</span>
+            String physicTableName = tbName + tablePostfix;
+            System.out.println(<span class="hljs-string">"physicTableName = "</span> + physicTableName);<span class="hljs-comment">//physicTableName = t_city_00、t_city_01、t_city_02等</span>
+            <span class="hljs-comment">//得到 数据库选择器标识路由条件---确定是存在哪一个数据库中</span>
+            DBSelectorIDRouteCondition dbSelectorIDRouteCondition = <span class="hljs-keyword">new</span> DBSelectorIDRouteCondition(
+                    <span class="hljs-string">"t_city"</span>, dbSelectorID, physicTableName);
+            <span class="hljs-comment">//将分库分表添加到线程中</span>
+            ThreadLocalMap.put(ThreadLocalString.ROUTE_CONDITION, dbSelectorIDRouteCondition);
+
+            System.out.println(<span class="hljs-string">"配置完成，准备开始插入数据"</span>);
+            City city = <span class="hljs-keyword">new</span> City(id, <span class="hljs-string">"北京"</span>);
+            service.insert(city);
+        }
+    }
+}
+</code></pre>
+
+<hr>
+
+<p>运行结果： <br>
+Run输出台： <br>
+<img src="http://img.blog.csdn.net/20170721095746601?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="console操作台" title=""></p>
+
+<p>数据库数据：</p>
+
+<p><img src="http://img.blog.csdn.net/20170721095852402?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcTY4MzQ4NTA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+
+
+<h3 id="7异常处理建议">7、异常处理建议</h3>
+
+<blockquote>
+  <p>配置过程中，不要错漏掉某些数据，在运行测试类时，如果碰上异常，耐心的看它报的错误指向，观察zdal的源码，观察它在出错的那一段是想要做什么事情，抛出的异常，然后根据这个逻辑，去寻找到底是哪一块出错，耐心一些^^ <br>
+  结束</p>
+</blockquote>
+
+<hr>
+
+<p><a href="http://blog.csdn.net/q6834850">转载请标明出处，谢谢~！^^，有问题一起讨论      _______by-陶浩伟</a></p></div>

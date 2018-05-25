@@ -1,8 +1,9 @@
 ##ignore this file##
 /target/ 
 /.idea/
-/src/main/resources/config/dev.properties
-/src/main/resources/config/zdal-dev-ds.xml
+/basic/dao/src/main/resources/config/dev.properties
+/basic/dao/src/main/resources/config/zdal-dev-ds.xml
+/basic/cache/src/main/java/redis/JedisFactory.java
 .classpath
 .project
 .settings      

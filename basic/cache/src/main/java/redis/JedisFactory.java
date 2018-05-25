@@ -15,7 +15,7 @@ import java.util.Hashtable;
  */
 public class JedisFactory {
     private static String redisAddress = "120.77.241.185";
-    private static String redisPassWord = "cdkjRedis";
+    private static String redisPassWord = "123456";
     private static int redisPort = 6379;
     private static int redisTimeout = 2000;
     //配置连接池，连接对象，其中jedisPoolConfig对象可以操控连接的空闲时间、连接个数等等，这里采用默认方式

@@ -86,22 +86,44 @@ public class BlogController {
     }
 
 
+//    @RequestMapping("loadIndex.html")
+//    public String loadIndex(PageVO pageVO, Model model) {
+////        System.out.println("dateSource = "+dataSource==null);
+//
+//        pageVO = new PageVO(pageVO.getNowPage(), blogService.countListSize().intValue(), 6);
+//        //逻辑数据库初始化加载
+//        //开始查询
+//        List<BlogDO> blogDOList = blogService.findAllBlog(pageVO.getBegin(), pageVO.getPageSize());
+//        //根据时间规则排序
+//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//        model.addAttribute("sdf", sdf);
+//        model.addAttribute("pageVO", pageVO);
+//        model.addAttribute("blogDOList", blogDOList);
+//
+//        return "index";
+//    }
     @RequestMapping("loadIndex.html")
-    public String loadIndex(PageVO pageVO, Model model) {
-//        System.out.println("dateSource = "+dataSource==null);
+    public String loadIndex(@RequestParam(value = "nowPage", required = false, defaultValue = "1") Integer nowPage, Model model) {
+        // 获取总记录数
+        int totalRecords = blogService.countListSize().intValue();
 
-        pageVO = new PageVO(pageVO.getNowPage(), blogService.countListSize().intValue(), 6);
-        //逻辑数据库初始化加载
-        //开始查询
+        // 初始化 PageVO 对象
+        PageVO pageVO = new PageVO(nowPage, totalRecords, 6);
+
+        // 开始查询
         List<BlogDO> blogDOList = blogService.findAllBlog(pageVO.getBegin(), pageVO.getPageSize());
-        //根据时间规则排序
+
+        // 日期格式化
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+        // 将变量添加到模型中
         model.addAttribute("sdf", sdf);
         model.addAttribute("pageVO", pageVO);
         model.addAttribute("blogDOList", blogDOList);
 
         return "index";
     }
+
 
 //Zdal的首页方法
 //    @Autowired

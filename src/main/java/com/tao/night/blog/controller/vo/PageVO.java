@@ -1,9 +1,12 @@
 package com.tao.night.blog.controller.vo;
 
+import lombok.Data;
+
 /**
  * Created by Taohaowei on 2017/7/28.
  * 控制页码VO
  */
+@Data
 public class PageVO {
     /**
      * 当前页

@@ -13,6 +13,7 @@ import org.springframework.web.servlet.ModelAndView;
 
 import java.util.Date;
 import java.util.Map;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 /**
@@ -49,7 +50,7 @@ public class LoadInterceptor implements HandlerInterceptor {
                 getUrlParams(request.getParameterMap()),
                 request.getRequestedSessionId(),
                 new Date(),
-                existingLog.getVisitor() + 1
+                Optional.ofNullable(existingLog.getVisitor()).orElse(0) + 1
         );
 
         beginTime = System.currentTimeMillis();

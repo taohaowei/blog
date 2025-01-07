@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.tao.night.blog.dao.BlogDAO;
 import com.tao.night.blog.dao.model.BlogDO;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -88,7 +88,7 @@ public class BlogAdapter {
     /**
      * 根据博客id找到对应的博客
      */
-    public BlogDO findBlogById(int id) {
+    public BlogDO findBlogById(Long id) {
         return blogDAO.selectById(id);
     }
 
@@ -102,7 +102,7 @@ public class BlogAdapter {
     /**
      * 增加点击率
      */
-    public void viewBlog(int id) {
+    public void viewBlog(Long id) {
         UpdateWrapper<BlogDO> updateWrapper = new UpdateWrapper<BlogDO>().eq("id", id).setSql("viewCount = viewCount+1");
         blogDAO.update(null, updateWrapper);
     }

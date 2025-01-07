@@ -1,5 +1,6 @@
 package com.tao.night.blog.dao.model;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -16,7 +17,7 @@ public class BlogDO {
     /**
      * 博客id，主键、索引、自增
      */
-    @TableId
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     /**

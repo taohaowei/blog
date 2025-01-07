@@ -78,12 +78,13 @@
         <div class="overlay"></div>
         <nav role="navigation">
             <ul>
-                <li><a th:href="@{/myshow.html}"><i class="icon-home"></i></a></li>
+<!--                <li><a th:href="@{/myshow}"><i class="icon-home"></i></a></li>-->
+                <li><a href="http://121.199.45.90:3389/chat"><i class="icon-home"></i></a></li>
             </ul>
         </nav>
         <div class="featured">
             <span>Blog</span>
-            <h2><a th:href="@{/myshow.html}">I'm 陶浩伟 </a></h2>
+            <h2><a th:href="@{/myshow}">I'm 陶浩伟 </a></h2>
         </div>
     </div>
     <div id="fh5co-main-content">
@@ -102,7 +103,7 @@
                             点击：<span th:text="${blogDO.viewCount}"></span>
                         </span>
                         <h2>
-                            <a th:href="@{/blogDO/toNextBlog.html(blogId=${blogDO.id})}"
+                            <a th:href="@{/toNextBlog(blogId=${blogDO.id})}"
                                th:text="${blogDO.title}"></a>
                         </h2>
                         <p th:text="${blogDO.summary}"></p>
@@ -113,13 +114,13 @@
             <ul class="ulc">
                 <!-- 上一页 -->
                 <li class="lic">
-                    <a th:href="@{/blog/loadIndex.html(nowPage=${pageVO.nowPage - 1})}"
+                    <a th:href="@{/loadIndex(nowPage=${pageVO.nowPage - 1})}"
                        th:if="${pageVO.nowPage > 1}">«</a>
                 </li>
                 <!-- 分页页码 -->
                 <th:block th:each="i : ${#numbers.sequence(pageVO.beginPage, pageVO.endPage)}">
                     <li class="lic">
-                        <a th:href="@{/blog/loadIndex.html(nowPage=${i})}"
+                        <a th:href="@{/loadIndex(nowPage=${i})}"
                            th:style="${pageVO.nowPage == i} ? 'color: #FC5185;' : ''">
                             [[${i}]]
                         </a>
@@ -127,12 +128,12 @@
                 </th:block>
                 <!-- 下一页 -->
                 <li class="lic" style="margin-right: 50px;">
-                    <a th:href="@{/blog/loadIndex.html(nowPage=${pageVO.nowPage + 1})}"
-                       th:if="${pageVO.nowPage < pageVO.totalPage}">»</a>
+                    <a th:href="@{/loadIndex(nowPage=${pageVO.nowPage + 1})}"
+                       th:if="${pageVO.nowPage < pageVO.pageCount}">»</a>
                 </li>
             </ul>
 
-            <footer th:replace="foot :: footer"></footer>
+            <footer th:replace="~{foot :: footer}"></footer>
         </div>
     </div>
 </div>

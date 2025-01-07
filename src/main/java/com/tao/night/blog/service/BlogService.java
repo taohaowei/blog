@@ -51,13 +51,13 @@ public class BlogService {
         }
     }
 
-    public BlogDO findBlogById(int id) {
+    public BlogDO findBlogById(Long id) {
         //查询这个的时候增加点击数
         blogAdapter.viewBlog(id);
         return blogAdapter.findBlogById(id);
     }
 
-    public BlogDO findNextBlogById(int id) {
+    public BlogDO findNextBlogById(Long id) {
         return blogAdapter.findBlogById(id);
     }
 

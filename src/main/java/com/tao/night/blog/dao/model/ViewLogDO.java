@@ -1,5 +1,6 @@
 package com.tao.night.blog.dao.model;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -13,7 +14,7 @@ import java.util.Date;
 @TableName("t_viewlog")
 public class ViewLogDO {
 
-    @TableId
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     private String ipAddress;

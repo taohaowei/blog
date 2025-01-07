@@ -1,200 +1,217 @@
 package com.tao.night.blog.controller;
 
-//import com.alipay.zdal.client.ThreadLocalString;
-//import com.alipay.zdal.client.jdbc.ZdalDataSource;
-//import com.alipay.zdal.client.util.ThreadLocalMap;
-//import com.alipay.zdal.client.util.condition.DBSelectorIDRouteCondition;
-
 import com.tao.night.blog.controller.vo.PageVO;
+import com.tao.night.blog.dao.BlogContextDAO;
+import com.tao.night.blog.dao.model.BlogContextDO;
 import com.tao.night.blog.dao.model.BlogDO;
 import com.tao.night.blog.service.BlogService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.IOException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 /**
  * Created by Taohaowei on 2017/7/26.
  */
-@Controller("blogController")
-@RequestMapping("/blog")
+@Controller
 public class BlogController {
+
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Autowired
     private BlogService blogService;
 
+    @Autowired
+    private BlogContextDAO blogContextDAO;
 
-    @RequestMapping("uploadFile.html")
-    public String upload(@RequestParam(value = "file") MultipartFile file, HttpServletRequest request, Model model) {
-        String path = request.getSession().getServletContext().getRealPath("blogImg");
-        String fileName = file.getOriginalFilename();
-//        String fileName = new Date().getTime()+".jpg";
-        System.out.println(path + fileName);
-        File targetFile = new File(path, fileName);
-        if (!targetFile.exists()) {
-            targetFile.mkdirs();
+    @PostMapping("/uploadFile")
+    public String upload(@RequestParam("file") MultipartFile file, HttpServletRequest request, Model model) {
+        if (file.isEmpty()) {
+            model.addAttribute("message", "上传的文件为空");
+            return "errorPage";
         }
 
-        //保存
+        // 验证文件大小
+        if (file.getSize() > MAX_FILE_SIZE) {
+            model.addAttribute("message", "上传的文件大小超过限制");
+            return "errorPage";
+        }
+
+        // 验证文件类型（这里只允许图片类型）
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            model.addAttribute("message", "文件类型不支持");
+            return "errorPage";
+        }
+
+        // 获取上传路径
+        String uploadDir = request.getServletContext().getRealPath("/blogImg");
+        if (StringUtils.isBlank(uploadDir)) {
+            uploadDir = System.getProperty("java.io.tmpdir");
+        }
+
+        // 生成安全的文件名
+        String originalFileName = file.getOriginalFilename();
+        String fileName = System.currentTimeMillis() + "_" + org.springframework.util.StringUtils.cleanPath(originalFileName);
+        File targetFile = new File(uploadDir, fileName);
+
+        // 确保目录存在
+        if (!targetFile.getParentFile().exists()) {
+            boolean mkdirs = targetFile.getParentFile().mkdirs();
+            if (!mkdirs) {
+                model.addAttribute("message", "目录创建失败");
+                return "errorPage";
+            }
+        }
+
+        // 保存文件
         try {
             file.transferTo(targetFile);
+            model.addAttribute("fileUrl", request.getContextPath() + "/blogImg/" + fileName);
+            return "uploadBlog";
+        } catch (IOException e) {
+            e.printStackTrace();
+            model.addAttribute("message", "文件上传失败");
+            return "errorPage";
+        }
+    }
+
+    @GetMapping("/insert")
+    public String insertBlog(BlogDO blogDO, @RequestParam("typeName") String typeName, Model model) {
+        if (blogDO == null || StringUtils.isBlank(typeName)) {
+            model.addAttribute("message", "博客内容或类型不能为空");
+            return "errorPage";
+        }
+
+        // 设置博客类型
+        if (!setBlogType(blogDO, typeName)) {
+            model.addAttribute("message", "未知的博客类型");
+            return "errorPage";
+        }
+
+        // 插入博客
+        try {
+            Long blogId = blogService.insert(blogDO, blogDO.getContext());
+            return "redirect:/toNextBlog?blogId=" + blogId;
         } catch (Exception e) {
             e.printStackTrace();
+            model.addAttribute("message", "博客插入失败");
+            return "errorPage";
         }
-        model.addAttribute("fileUrl", request.getContextPath() + "/blogImg/" + fileName);
-
-        return "uploadBlog";
     }
 
-    @RequestMapping("myshow.html")
-    public String turnmyshow() {
-        return "redirect:myshow.html";
+    @GetMapping("/toNextBlog")
+    public String toNextBlog(@RequestParam("blogId") Long blogId, Model model) {
+        if (blogId == null || blogId <= 0) {
+            model.addAttribute("message", "无效的博客ID");
+            return "errorPage";
+        }
+
+        try {
+            // 获取当前博客
+            BlogDO blogDOById = blogService.findBlogById(blogId);
+            if (blogDOById == null) {
+                model.addAttribute("message", "博客不存在");
+                return "errorPage";
+            }
+
+            BlogContextDO blogContextDO = blogContextDAO.selectById(blogDOById.getId());
+            blogDOById.setContext(blogContextDO.getContext());
+
+            // 获取上一条和下一条博客
+            BlogDO preBlogDO = blogService.findNextBlogById(blogId + 1);
+            BlogDO nextBlogDO = blogService.findNextBlogById(blogId - 1);
+
+            // 判断是否为旧博客
+            Date thresholdDate = new SimpleDateFormat("yyyy-MM-dd").parse("2017-07-03");
+            boolean isOldBlog = blogDOById.getCreateTime().before(thresholdDate);
+
+            model.addAttribute("isOldBlog", isOldBlog);
+            model.addAttribute("dateFormat", DATE_FORMAT);
+            model.addAttribute("preBlogDO", preBlogDO);
+            model.addAttribute("blogDO", blogDOById);
+            model.addAttribute("nextBlogDO", nextBlogDO);
+            return "single";
+        } catch (ParseException e) {
+            e.printStackTrace();
+            model.addAttribute("message", "日期解析失败");
+            return "errorPage";
+        } catch (Exception e) {
+            e.printStackTrace();
+            model.addAttribute("message", "加载博客失败");
+            return "errorPage";
+        }
     }
 
-    @RequestMapping("insert.html")
-    public String insertBlog(BlogDO blogDO, String typeName, HttpServletRequest request, Model model) {
-        System.out.println(blogDO);
-        String path = request.getSession().getServletContext().getRealPath("blogImg");
-        String fileName = "/blogDO.html";
-        //设置博客类型
-        setBlogType(blogDO, typeName);
-        //插入博客，并返回插入博客id
-        Long blogId = blogService.insert(blogDO, path + fileName);
-        return "redirect:/blogDO/toNextBlog.html?blogId=" + blogId;
+    @GetMapping("/")
+    public String redirectToLoadIndex() {
+        return "redirect:/loadIndex";
     }
 
-    @RequestMapping("toNextBlog.html")
-    public String toNextBlog(int blogId, Model model) {
-        //根据博客id查询得到博客，存入model
-        BlogDO blogDOById = blogService.findBlogById(blogId);
-        BlogDO preBlogDO = blogService.findNextBlogById(blogId + 1);
-        BlogDO nextBlogDO = blogService.findNextBlogById(blogId - 1);
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    @GetMapping("/loadIndex")
+    public String loadIndex(
+            @RequestParam(value = "nowPage", required = false, defaultValue = "1") Integer nowPage,
+            Model model) {
+        if (nowPage == null || nowPage < 1) {
+            nowPage = 1;
+        }
 
-        model.addAttribute("sdf", sdf);
-        model.addAttribute("preBlogDO", preBlogDO);
-        model.addAttribute("blog", blogDOById);
-        model.addAttribute("nextBlogDO", nextBlogDO);
-        return "single";
-    }
-
-
-//    @RequestMapping("loadIndex.html")
-//    public String loadIndex(PageVO pageVO, Model model) {
-////        System.out.println("dateSource = "+dataSource==null);
-//
-//        pageVO = new PageVO(pageVO.getNowPage(), blogService.countListSize().intValue(), 6);
-//        //逻辑数据库初始化加载
-//        //开始查询
-//        List<BlogDO> blogDOList = blogService.findAllBlog(pageVO.getBegin(), pageVO.getPageSize());
-//        //根据时间规则排序
-//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//        model.addAttribute("sdf", sdf);
-//        model.addAttribute("pageVO", pageVO);
-//        model.addAttribute("blogDOList", blogDOList);
-//
-//        return "index";
-//    }
-    @RequestMapping("loadIndex.html")
-    public String loadIndex(@RequestParam(value = "nowPage", required = false, defaultValue = "1") Integer nowPage, Model model) {
         // 获取总记录数
         int totalRecords = blogService.countListSize().intValue();
-
-        // 初始化 PageVO 对象
         PageVO pageVO = new PageVO(nowPage, totalRecords, 6);
 
-        // 开始查询
+        // 检查当前页是否超出范围
+        if (nowPage > pageVO.getPageCount()) {
+            nowPage = pageVO.getPageCount();
+            pageVO.setNowPage(nowPage);
+        }
+
+        // 查询博客列表
         List<BlogDO> blogDOList = blogService.findAllBlog(pageVO.getBegin(), pageVO.getPageSize());
 
-        // 日期格式化
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-        // 将变量添加到模型中
-        model.addAttribute("sdf", sdf);
+        model.addAttribute("dateFormat", DATE_FORMAT);
         model.addAttribute("pageVO", pageVO);
         model.addAttribute("blogDOList", blogDOList);
 
         return "index";
     }
 
-
-//Zdal的首页方法
-//    @Autowired
-//    private ZdalDataSource dataSource;
-// 所有配置的物理数据源, dbIndex
-//    private Map<Integer, String> logicPhysicsIndexes;
-
-//库名
-//表名
-//    @RequestMapping("loadIndex.html")
-//    public String loadIndex(PageVO pageVO, Model model)
-//    {
-////        System.out.println("dateSource = "+dataSource==null);
-//        //逻辑数据库初始化加载
-//        logicPhysicsIndexes = new HashMap<Integer, String>();
-//        //得到物理数据源名称
-//        Map<String, String> logicPhysicsDsNames = dataSource.getZdalConfig().getLogicPhysicsDsNames();
-//        //将其存入物理数据源数据  {(0,master_00),(1,master_01)...}
-//        for (String name : logicPhysicsDsNames.keySet()) {
-//            String[] split = name.split("_");
-//            logicPhysicsIndexes.put(Integer.valueOf(split[1]), name);
-//        }
-//        //开始查询
-//        List<BlogDO> blogList = new ArrayList<BlogDO>();
-//        for(int i=0;i<4;i++)
-//        {
-//            // 指定查詢库的路由規則
-//            //根据规则得到分库索引
-//            int dbIndex = ZdalRuleParser.parserDbIndex(i);
-//            String dbSelectorID = logicPhysicsIndexes.get(dbIndex);
-////            System.out.println("dbSelectorID = " + dbSelectorID);
-//            //根据规则得到分表索引
-//            int tbIndex = ZdalRuleParser.parserTbIndex(i);
-//            String tablePostfix = new DecimalFormat("_00").format(tbIndex);//如果tbIndex为3，tablePostfix为_03
-//            //根据分表索引得到物理表名称
-//            String physicTableName = "t_blog" + tablePostfix;
-////            System.out.println("physicTableName = " + physicTableName);//physicTableName = t_city_00、t_city_01、t_city_02等
-//            //得到 数据库选择器标识路由条件---确定是存在哪一个数据库中
-//            DBSelectorIDRouteCondition dbSelectorIDRouteCondition = new DBSelectorIDRouteCondition("t_blog", dbSelectorID, physicTableName);
-//            //将分库分表添加到线程中
-//            ThreadLocalMap.put(ThreadLocalString.ROUTE_CONDITION, dbSelectorIDRouteCondition);
-//
-//            List<BlogDO> allBlog = blogService.findAllBlog();
-//            blogList.addAll(allBlog);
-//        }
-//        //根据时间规则排序
-//        Collections.sort(blogList,new BlogComparator());
-//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//
-//        System.out.println("pageVO1 = "+pageVO);
-//        pageVO = new PageVO(pageVO.getNowPage(),blogList.size(),6);
-//
-//        System.out.println("pageVO2 = "+pageVO);
-//
-//        model.addAttribute("sdf",sdf);
-//        model.addAttribute("pageVO",pageVO);
-//        model.addAttribute("blogList",blogList);
-//
-//        return "index";
-//    }
-
-    private void setBlogType(BlogDO blogDO, String typeName) {
-        if ("原创".equals(typeName)) {
-            blogDO.setType(1);
-        } else if ("转载".equals(typeName)) {
-            blogDO.setType(2);
-        } else if ("翻译".equals(typeName)) {
-            blogDO.setType(3);
-        } else if ("收藏".equals(typeName)) {
-            blogDO.setType(4);
-        }
+    @GetMapping("/myshow")
+    public String myShow() {
+        return "myshow"; // 返回模板名称，不需要加 .html 后缀
     }
+    private boolean setBlogType(BlogDO blogDO, String typeName) {
+        if (blogDO == null || StringUtils.isBlank(typeName)) {
+            return false;
+        }
 
+        switch (typeName) {
+            case "原创":
+                blogDO.setType(1);
+                break;
+            case "转载":
+                blogDO.setType(2);
+                break;
+            case "翻译":
+                blogDO.setType(3);
+                break;
+            case "收藏":
+                blogDO.setType(4);
+                break;
+            default:
+                return false;
+        }
+        return true;
+    }
 }
